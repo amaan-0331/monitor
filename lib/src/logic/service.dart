@@ -5,6 +5,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/utils/formatters.dart';
 
@@ -25,13 +26,14 @@ class Monitor {
   // Global navigator key for opening logs from anywhere
   static GlobalKey<NavigatorState>? navigatorKey;
 
-  // In-memory log storage
-  final List<ApiLogEntry> _logs = [];
+  // In-memory log storage - Map for O(1) lookup by ID
+  final Map<String, LogEntry> _logsById = {};
+  final List<String> _logOrder = []; // Maintain insertion order
   static const int _maxLogs = 500;
 
   // Stream controller for real-time updates
-  final _logStreamController = StreamController<List<ApiLogEntry>>.broadcast();
-  Stream<List<ApiLogEntry>> get logStream => _logStreamController.stream;
+  final _logStreamController = StreamController<List<LogEntry>>.broadcast();
+  Stream<List<LogEntry>> get logStream => _logStreamController.stream;
 
   // Console color codes
   static const _reset = '\x1B[0m';
@@ -39,58 +41,94 @@ class Monitor {
   static const _green = '\x1B[32m';
   static const _yellow = '\x1B[33m';
   static const _blue = '\x1B[34m';
-  static const _magenta = '\x1B[35m';
   static const _cyan = '\x1B[36m';
   static const _white = '\x1B[37m';
 
   /// Get all logs (newest first)
-  List<ApiLogEntry> get logs => List.unmodifiable(_logs.reversed.toList());
+  List<LogEntry> get logs {
+    return List.unmodifiable(
+      _logOrder.reversed.map((id) => _logsById[id]!).toList(),
+    );
+  }
 
-  /// Get logs filtered by type
-  List<ApiLogEntry> getLogsByType(ApiLogType type) =>
-      logs.where((log) => log.type == type).toList();
+  /// Get only HTTP logs
+  List<HttpLogEntry> get httpLogs {
+    return logs.whereType<HttpLogEntry>().toList();
+  }
+
+  /// Get only message logs
+  List<MessageLogEntry> get messageLogs {
+    return logs.whereType<MessageLogEntry>().toList();
+  }
+
+  /// Get logs filtered by HTTP state
+  List<HttpLogEntry> getLogsByState(HttpLogState state) =>
+      httpLogs.where((log) => log.state == state).toList();
 
   /// Get logs filtered by method
-  List<ApiLogEntry> getLogsByMethod(String method) =>
-      logs.where((log) => log.method == method).toList();
+  List<HttpLogEntry> getLogsByMethod(String method) =>
+      httpLogs.where((log) => log.method == method).toList();
 
   /// Get error logs only
-  List<ApiLogEntry> get errorLogs => logs.where((log) => log.isError).toList();
+  List<LogEntry> get errorLogs => logs.where((log) {
+    return switch (log) {
+      HttpLogEntry entry => entry.isError,
+      MessageLogEntry entry => entry.isError,
+    };
+  }).toList();
 
   /// Get success logs only
-  List<ApiLogEntry> get successLogs =>
-      logs.where((log) => !log.isError).toList();
+  List<HttpLogEntry> get successLogs =>
+      httpLogs.where((log) => log.isSuccess).toList();
+
+  /// Get pending logs only
+  List<HttpLogEntry> get pendingLogs =>
+      httpLogs.where((log) => log.isPending).toList();
 
   /// Search logs by URL or message
-  List<ApiLogEntry> search(String query) {
+  List<LogEntry> search(String query) {
     final lowerQuery = query.toLowerCase();
     return logs.where((log) {
-      final url = log.url?.toLowerCase() ?? '';
-      final message = log.message?.toLowerCase() ?? '';
-      final method = log.method?.toLowerCase() ?? '';
-      return url.contains(lowerQuery) ||
-          message.contains(lowerQuery) ||
-          method.contains(lowerQuery);
+      return switch (log) {
+        HttpLogEntry entry =>
+          entry.url.toLowerCase().contains(lowerQuery) ||
+              entry.method.toLowerCase().contains(lowerQuery),
+        MessageLogEntry entry =>
+          entry.message.toLowerCase().contains(lowerQuery) ||
+              (entry.url?.toLowerCase().contains(lowerQuery) ?? false),
+      };
     }).toList();
   }
 
   /// Clear all logs
   void clearLogs() {
-    _logs.clear();
+    _logsById.clear();
+    _logOrder.clear();
     _notifyListeners();
   }
 
   /// Add a log entry
-  void _addLog(ApiLogEntry entry) {
+  void _addLog(LogEntry entry) {
     if (!_enableApiLogStorage) return;
 
-    _logs.add(entry);
+    _logsById[entry.id] = entry;
+    _logOrder.add(entry.id);
 
     // Trim logs if exceeding max
-    while (_logs.length > _maxLogs) {
-      _logs.removeAt(0);
+    while (_logOrder.length > _maxLogs) {
+      final oldestId = _logOrder.removeAt(0);
+      _logsById.remove(oldestId);
     }
 
+    _notifyListeners();
+  }
+
+  /// Update an existing log entry
+  void _updateLog(String id, LogEntry entry) {
+    if (!_enableApiLogStorage) return;
+    if (!_logsById.containsKey(id)) return;
+
+    _logsById[id] = entry;
     _notifyListeners();
   }
 
@@ -116,52 +154,131 @@ class Monitor {
     }
   }
 
-  static void _log(
-    String message, {
-    String level = 'INFO',
-    String color = _white,
-    ApiLogType type = ApiLogType.info,
+  // ═══════════════════════════════════════════════════════════════════════════
+  // HTTP Request Lifecycle API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start tracking an HTTP request - returns the ID for later completion
+  static String startRequest({
+    required String method,
+    required Uri uri,
+    Map<String, String>? headers,
+    String? body,
+    int? bodyBytes,
   }) {
-    // Store in memory
-    _instance._addLog(
-      ApiLogEntry(
-        id: _generateId('LOG'),
-        timestamp: DateTime.now(),
-        type: type,
-        message: message,
-      ),
+    final id = _generateId('HTTP');
+    final redactedHeaders = headers != null ? redactAuth(headers) : null;
+
+    final entry = HttpLogEntry(
+      id: id,
+      timestamp: DateTime.now(),
+      method: method,
+      url: uri.toString(),
+      state: HttpLogState.pending,
+      requestHeaders: redactedHeaders,
+      requestBody: body,
+      requestSize:
+          bodyBytes ?? (body != null ? utf8.encode(body).length : null),
     );
 
-    if (!_enableApiConsoleLogs) return;
+    _instance._addLog(entry);
+    _printRequest(entry);
 
-    final timestamp = DateTime.now().toIso8601String();
-    final separator = '─' * 80;
-
-    if (_shouldUseColors) {
-      debugPrint(
-        '\n$color┌$separator┐$_reset\n'
-        '$color│ [$level] $timestamp$_reset\n'
-        '$color│ $message$_reset\n'
-        '$color└$separator┘$_reset',
-      );
-    } else {
-      debugPrint(
-        '\n┌$separator┐\n'
-        '│ [$level] $timestamp\n'
-        '│ $message\n'
-        '└$separator┘',
-      );
-    }
+    return id;
   }
 
-  static void info(String msg) => _log(msg, color: _blue);
+  /// Complete an HTTP request with success response
+  static void completeRequest({
+    required String id,
+    required int statusCode,
+    required Duration duration,
+    Map<String, String>? responseHeaders,
+    String? responseBody,
+    int? responseSize,
+  }) {
+    final existing = _instance._logsById[id];
+    if (existing == null || existing is! HttpLogEntry) {
+      error('Cannot complete request: ID $id not found or not an HTTP entry');
+      return;
+    }
 
-  static void error(String msg) =>
-      _log(msg, level: 'ERROR', color: _red, type: ApiLogType.error);
-  static void request(String msg) =>
-      _log(msg, level: 'REQ', color: _cyan, type: ApiLogType.request);
-  static void response(String msg) =>
-      _log(msg, level: 'RES', color: _magenta, type: ApiLogType.response);
+    final state = statusCode >= 200 && statusCode < 400
+        ? HttpLogState.success
+        : HttpLogState.error;
+
+    final updated = existing.complete(
+      state: state,
+      statusCode: statusCode,
+      duration: duration,
+      responseHeaders: responseHeaders,
+      responseBody: responseBody,
+      responseSize:
+          responseSize ??
+          (responseBody != null ? utf8.encode(responseBody).length : null),
+    );
+
+    _instance._updateLog(id, updated);
+    _printResponse(updated);
+  }
+
+  /// Complete an HTTP request with error (network failure, exception)
+  static void failRequest({
+    required String id,
+    required String errorMessage,
+    Duration? duration,
+    bool isTimeout = false,
+  }) {
+    final existing = _instance._logsById[id];
+    if (existing == null || existing is! HttpLogEntry) {
+      error('Cannot fail request: ID $id not found or not an HTTP entry');
+      return;
+    }
+
+    final updated = existing.complete(
+      state: isTimeout ? HttpLogState.timeout : HttpLogState.error,
+      duration: duration,
+      errorMessage: errorMessage,
+    );
+
+    _instance._updateLog(id, updated);
+    _printError(updated);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Message Logging API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Log a message (info, warning, error)
+  static void message(
+    String msg, {
+    MessageLevel level = MessageLevel.info,
+    String? url,
+  }) {
+    final entry = MessageLogEntry(
+      id: _generateId('MSG'),
+      timestamp: DateTime.now(),
+      level: level,
+      message: msg,
+      url: url,
+    );
+
+    _instance._addLog(entry);
+    _printMessage(entry);
+  }
+
+  // Convenience methods
+  static void info(String msg) => message(msg, level: MessageLevel.info);
+  static void warning(String msg) => message(msg, level: MessageLevel.warning);
+  static void error(String msg) => message(msg, level: MessageLevel.error);
+
+  /// Cache hit (special info message with URL context)
+  static void cacheHit({required String cacheKey}) {
+    message('Cache hit - served from memory', url: cacheKey);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Initialization
+  // ═══════════════════════════════════════════════════════════════════════════
 
   static void init({
     required String baseUrl,
@@ -174,10 +291,10 @@ class Monitor {
 
     // Store system init log
     _instance._addLog(
-      ApiLogEntry(
+      MessageLogEntry(
         id: _generateId('INIT'),
         timestamp: DateTime.now(),
-        type: ApiLogType.info,
+        level: MessageLevel.info,
         message:
             'API Service Initialized\n'
             'Base URL: $baseUrl\n'
@@ -188,17 +305,17 @@ class Monitor {
     );
 
     final timestamp = DateTime.now().toIso8601String();
-    final separator = '═' * 80;
+    final separator = '=' * 80;
 
     final lines = [
-      '┌$separator┐',
-      '│ [SYSTEM] $timestamp',
-      '│ API Service Initialized',
-      '│ Base URL: $baseUrl',
-      '│ App Version: $appVersion',
-      '│ Console Logs: ${_enableApiConsoleLogs ? 'Enabled' : 'Disabled'}',
-      '│ Log Storage: ${_enableApiLogStorage ? 'Enabled' : 'Disabled'}',
-      '└$separator┘',
+      '+$separator+',
+      '| [SYSTEM] $timestamp',
+      '| API Service Initialized',
+      '| Base URL: $baseUrl',
+      '| App Version: $appVersion',
+      '| Console Logs: ${_enableApiConsoleLogs ? 'Enabled' : 'Disabled'}',
+      '| Log Storage: ${_enableApiLogStorage ? 'Enabled' : 'Disabled'}',
+      '+$separator+',
     ];
 
     if (_shouldUseColors) {
@@ -208,49 +325,34 @@ class Monitor {
     }
   }
 
-  /// Log detailed request information
-  static void requestDetail({
-    required String id,
-    required String method,
-    required Uri uri,
-    required Map<String, String> headers,
-    String? body,
-    int? bodyBytes,
-  }) {
-    final redactedHeaders = redactAuth(headers);
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Console Output
+  // ═══════════════════════════════════════════════════════════════════════════
 
-    // Store in memory
-    _instance._addLog(
-      ApiLogEntry(
-        id: id,
-        timestamp: DateTime.now(),
-        type: ApiLogType.request,
-        method: method,
-        url: uri.toString(),
-        requestHeaders: redactedHeaders,
-        requestBody: body,
-        size: bodyBytes ?? (body != null ? utf8.encode(body).length : null),
-      ),
-    );
-
+  static void _printRequest(HttpLogEntry entry) {
     if (!_enableApiConsoleLogs) return;
 
     final timestamp = DateTime.now().toIso8601String();
-    final separator = '═' * 80;
+    final separator = '=' * 80;
 
     final lines = [
-      '┌$separator┐',
-      '│ [REQUEST] $timestamp',
-      '│ ┌─ REQUEST [$id] ─────────────────────────────────────────────────',
-      '│ │ $method $uri',
-      '│ │ Headers:',
-      ...prettyJson(redactedHeaders).split('\n').map((line) => '│ │   $line'),
-      if (body != null && body.isNotEmpty) ...[
-        '│ │ Body (${formatBytes(bodyBytes ?? utf8.encode(body).length)}):',
-        ...truncateIfNeeded(body).split('\n').map((line) => '│ │   $line'),
+      '+$separator+',
+      '| [REQUEST] $timestamp',
+      '| +- REQUEST [${entry.id}] ------------------------------------',
+      '| | ${entry.method} ${entry.url}',
+      '| | Headers:',
+      if (entry.requestHeaders != null)
+        ...prettyJson(
+          entry.requestHeaders!,
+        ).split('\n').map((line) => '| |   $line'),
+      if (entry.requestBody != null && entry.requestBody!.isNotEmpty) ...[
+        '| | Body (${formatBytes(entry.requestSize ?? utf8.encode(entry.requestBody!).length)}):',
+        ...truncateIfNeeded(
+          entry.requestBody!,
+        ).split('\n').map((line) => '| |   $line'),
       ],
-      '│ └────────────────────────────────────────────────────────────────',
-      '└$separator┘',
+      '| +------------------------------------------------------------',
+      '+$separator+',
     ];
 
     if (_shouldUseColors) {
@@ -260,72 +362,49 @@ class Monitor {
     }
   }
 
-  /// Log detailed response information
-  static void responseDetail({
-    required String id,
-    required Uri uri,
-    required int status,
-    required Duration elapsed,
-    required String bodyRaw,
-  }) {
-    final size = utf8.encode(bodyRaw).length;
-
-    // Store in memory
-    _instance._addLog(
-      ApiLogEntry(
-        id: '$id-response',
-        timestamp: DateTime.now(),
-        type: ApiLogType.response,
-        method: 'RESPONSE',
-        url: uri.toString(),
-        statusCode: status,
-        duration: elapsed,
-        responseBody: bodyRaw,
-        size: size,
-      ),
-    );
-
+  static void _printResponse(HttpLogEntry entry) {
     if (!_enableApiConsoleLogs) return;
 
-    final decoded = safeDecode(bodyRaw);
-    final pretty = prettyJson(decoded);
-    final sizeStr = formatBytes(size);
     final timestamp = DateTime.now().toIso8601String();
-    final separator = '═' * 80;
+    final separator = '=' * 80;
 
     String statusCategory;
     String color;
     String statusIcon;
+    final status = entry.statusCode ?? 0;
+
     if (status >= 200 && status < 300) {
       statusCategory = 'SUCCESS';
       color = _green;
-      statusIcon = '✓';
+      statusIcon = '+';
     } else if (status == 204) {
       statusCategory = 'NO CONTENT';
       color = _blue;
-      statusIcon = '○';
+      statusIcon = 'o';
     } else if (status >= 400 && status < 500) {
       statusCategory = 'CLIENT ERROR';
       color = _yellow;
-      statusIcon = '⚠';
+      statusIcon = '!';
     } else {
       statusCategory = 'SERVER ERROR';
       color = _red;
-      statusIcon = '✗';
+      statusIcon = 'x';
     }
 
     final lines = [
-      '┌$separator┐',
-      '│ [RESPONSE] $timestamp',
-      '│ ┌─ RESPONSE [$id] ───────────────────────────────────────────────',
-      '│ │ URL: $uri',
-      '│ │ Status: $statusIcon $status ($statusCategory) │ ${elapsed.inMilliseconds}ms │ $sizeStr',
-      if (bodyRaw.isNotEmpty) ...[
-        '│ │ Response:',
-        ...truncateIfNeeded(pretty).split('\n').map((line) => '│ │   $line'),
+      '+$separator+',
+      '| [RESPONSE] $timestamp',
+      '| +- RESPONSE [${entry.id}] -----------------------------------',
+      '| | URL: ${entry.url}',
+      '| | Status: $statusIcon $status ($statusCategory) | ${entry.durationText} | ${entry.responseSizeText}',
+      if (entry.responseBody != null && entry.responseBody!.isNotEmpty) ...[
+        '| | Response:',
+        ...truncateIfNeeded(
+          entry.prettyResponseBody ?? entry.responseBody!,
+        ).split('\n').map((line) => '| |   $line'),
       ],
-      '│ └────────────────────────────────────────────────────────────────',
-      '└$separator┘',
+      '| +------------------------------------------------------------',
+      '+$separator+',
     ];
 
     if (_shouldUseColors) {
@@ -335,39 +414,61 @@ class Monitor {
     }
   }
 
-  /// Log detailed cache hit information
-  static void cacheHit({required String id, required String cacheKey}) {
-    // Store in memory
-    _instance._addLog(
-      ApiLogEntry(
-        id: id,
-        timestamp: DateTime.now(),
-        type: ApiLogType.info,
-        url: cacheKey,
-        message: 'Cache hit - served from memory',
-      ),
-    );
-
+  static void _printError(HttpLogEntry entry) {
     if (!_enableApiConsoleLogs) return;
 
     final timestamp = DateTime.now().toIso8601String();
-    final separator = '═' * 80;
+    final separator = '=' * 80;
 
     final lines = [
-      '┌$separator┐',
-      '│ [CACHE HIT] $timestamp',
-      '│ ┌─ CACHE HIT [$id] ──────────────────────────────────────────────',
-      '│ │ Cache hit - served from memory',
-      '│ │ Key: $cacheKey',
-      '│ │ Ultra fast response - no network call needed!',
-      '│ └────────────────────────────────────────────────────────────────',
-      '└$separator┘',
+      '+$separator+',
+      '| [ERROR] $timestamp',
+      '| +- ERROR [${entry.id}] --------------------------------------',
+      '| | URL: ${entry.url}',
+      '| | State: ${entry.state.label}',
+      if (entry.errorMessage != null) '| | Error: ${entry.errorMessage}',
+      if (entry.duration != null) '| | Duration: ${entry.durationText}',
+      '| +------------------------------------------------------------',
+      '+$separator+',
     ];
 
     if (_shouldUseColors) {
-      debugPrint(lines.map((line) => '$_yellow$line$_reset').join('\n'));
+      debugPrint(lines.map((line) => '$_red$line$_reset').join('\n'));
     } else {
       debugPrint(lines.join('\n'));
+    }
+  }
+
+  static void _printMessage(MessageLogEntry entry) {
+    if (!_enableApiConsoleLogs) return;
+
+    final timestamp = DateTime.now().toIso8601String();
+    final separator = '-' * 80;
+
+    String color;
+    switch (entry.level) {
+      case MessageLevel.info:
+        color = _blue;
+      case MessageLevel.warning:
+        color = _yellow;
+      case MessageLevel.error:
+        color = _red;
+    }
+
+    if (_shouldUseColors) {
+      debugPrint(
+        '\n$color+$separator+$_reset\n'
+        '$color| [${entry.level.label}] $timestamp$_reset\n'
+        '$color| ${entry.message}$_reset\n'
+        '$color+$separator+$_reset',
+      );
+    } else {
+      debugPrint(
+        '\n+$separator+\n'
+        '| [${entry.level.label}] $timestamp\n'
+        '| ${entry.message}\n'
+        '+$separator+',
+      );
     }
   }
 

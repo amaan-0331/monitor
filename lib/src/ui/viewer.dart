@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:monitor/src/logic/service.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/ui/details.dart';
@@ -112,8 +113,10 @@ class _ListViewState extends State<_ListView> {
   final _searchController = TextEditingController();
   final _scrollController = ScrollController();
 
-  final Set<ApiLogType> _selectedTypes = {};
+  final Set<HttpLogState> _selectedStates = {};
   final Set<String> _selectedMethods = {};
+  bool _showHttpLogs = true;
+  bool _showMessageLogs = true;
   String _searchQuery = '';
 
   @override
@@ -123,26 +126,39 @@ class _ListViewState extends State<_ListView> {
     super.dispose();
   }
 
-  List<ApiLogEntry> _filterLogs(List<ApiLogEntry> logs) {
+  List<LogEntry> _filterLogs(List<LogEntry> logs) {
     var filtered = logs;
 
     if (_searchQuery.isNotEmpty) {
       filtered = Monitor.instance.search(_searchQuery);
     }
 
-    if (_selectedTypes.isNotEmpty) {
-      filtered = filtered
-          .where((log) => _selectedTypes.contains(log.type))
-          .toList();
+    // Filter by entry type
+    filtered = filtered.where((log) {
+      return switch (log) {
+        HttpLogEntry() => _showHttpLogs,
+        MessageLogEntry() => _showMessageLogs,
+      };
+    }).toList();
+
+    // Filter HTTP logs by state
+    if (_selectedStates.isNotEmpty) {
+      filtered = filtered.where((log) {
+        return switch (log) {
+          HttpLogEntry entry => _selectedStates.contains(entry.state),
+          MessageLogEntry() => true, // Don't filter messages by HTTP state
+        };
+      }).toList();
     }
 
+    // Filter by HTTP method
     if (_selectedMethods.isNotEmpty) {
-      filtered = filtered
-          .where(
-            (log) =>
-                log.method != null && _selectedMethods.contains(log.method),
-          )
-          .toList();
+      filtered = filtered.where((log) {
+        return switch (log) {
+          HttpLogEntry entry => _selectedMethods.contains(entry.method),
+          MessageLogEntry() => true, // Don't filter messages by method
+        };
+      }).toList();
     }
 
     return filtered;
@@ -156,7 +172,7 @@ class _ListViewState extends State<_ListView> {
         _buildFilterBar(),
         const Divider(height: 1),
         Expanded(
-          child: StreamBuilder<List<ApiLogEntry>>(
+          child: StreamBuilder<List<LogEntry>>(
             stream: Monitor.instance.logStream,
             initialData: Monitor.instance.logs,
             builder: (context, snapshot) {
@@ -222,23 +238,50 @@ class _ListViewState extends State<_ListView> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          ...ApiLogType.values.map(
-            (type) => Padding(
+          // Entry type filters
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildFilterChip(
+              label: 'HTTP',
+              selected: _showHttpLogs,
+              onSelected: (selected) {
+                setState(() => _showHttpLogs = selected);
+              },
+              color: CustomColors.primary,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildFilterChip(
+              label: 'Messages',
+              selected: _showMessageLogs,
+              onSelected: (selected) {
+                setState(() => _showMessageLogs = selected);
+              },
+              color: CustomColors.tertiary,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // HTTP state filters
+          ...HttpLogState.values.map(
+            (state) => Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _buildFilterChip(
-                label: type.label,
-                selected: _selectedTypes.contains(type),
+                label: state.label,
+                selected: _selectedStates.contains(state),
                 onSelected: (selected) {
                   setState(
                     () => selected
-                        ? _selectedTypes.add(type)
-                        : _selectedTypes.remove(type),
+                        ? _selectedStates.add(state)
+                        : _selectedStates.remove(state),
                   );
                 },
-                color: _getTypeColor(type),
+                color: state.color,
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          // HTTP method filters
           ...['GET', 'POST', 'PUT', 'DELETE'].map(
             (method) => Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -252,7 +295,7 @@ class _ListViewState extends State<_ListView> {
                         : _selectedMethods.remove(method),
                   );
                 },
-                color: CustomColors.tertiary,
+                color: CustomColors.secondary,
               ),
             ),
           ),
@@ -287,7 +330,7 @@ class _ListViewState extends State<_ListView> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.blind, size: 48, color: CustomColors.outline),
+          const Icon(Icons.blind, size: 48, color: CustomColors.outline),
           const SizedBox(height: 16),
           Text(
             isAbsoluteEmpty ? 'No logs captured yet' : 'No logs match filters',
@@ -301,25 +344,38 @@ class _ListViewState extends State<_ListView> {
 
 class _LogEntryCard extends StatelessWidget {
   const _LogEntryCard({required this.log});
-  final ApiLogEntry log;
+  final LogEntry log;
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = log.isError ? CustomColors.error : CustomColors.success;
+    return switch (log) {
+      HttpLogEntry entry => _HttpLogCard(entry: entry),
+      MessageLogEntry entry => _MessageLogCard(entry: entry),
+    };
+  }
+}
 
+class _HttpLogCard extends StatelessWidget {
+  const _HttpLogCard({required this.entry});
+  final HttpLogEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: log.isError
+          color: entry.isError
               ? CustomColors.error.withValues(alpha: .3)
-              : CustomColors.outlineVariant,
+              : entry.isPending
+                  ? CustomColors.warning.withValues(alpha: .3)
+                  : CustomColors.outlineVariant,
         ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => showLogDetails(context, log: log),
+        onTap: () => showLogDetails(context, log: entry),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -327,14 +383,23 @@ class _LogEntryCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  _Badge(label: log.type.label, color: _getTypeColor(log.type)),
-                  if (log.method != null) ...[
-                    const SizedBox(width: 6),
-                    _Badge(label: log.method!, color: CustomColors.tertiary),
-                  ],
+                  // State badge
+                  _Badge(label: entry.state.label, color: entry.state.color),
+                  const SizedBox(width: 6),
+                  // Method badge
+                  _Badge(label: entry.method, color: CustomColors.tertiary),
                   const Spacer(),
+                  // Pending indicator
+                  if (entry.isPending) ...[
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   Text(
-                    log.timeText,
+                    entry.timeText,
                     style: const TextStyle(
                       fontSize: 10,
                       fontFamily: 'monospace',
@@ -345,7 +410,7 @@ class _LogEntryCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                log.url ?? log.message ?? '',
+                entry.url,
                 style: const TextStyle(
                   fontSize: 13,
                   fontFamily: 'monospace',
@@ -354,25 +419,112 @@ class _LogEntryCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (log.statusCode != null || log.duration != null) ...[
+              if (entry.isCompleted) ...[
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    if (log.statusCode != null)
+                    if (entry.statusCode != null)
                       _StatusIndicator(
-                        code: log.statusCode!,
-                        color: statusColor,
+                        code: entry.statusCode!,
+                        color: entry.isError
+                            ? CustomColors.error
+                            : CustomColors.success,
                       ),
-                    const SizedBox(width: 12),
-                    if (log.duration != null)
+                    if (entry.statusCode != null) const SizedBox(width: 12),
+                    if (entry.duration != null)
                       _InfoTag(
                         icon: Icons.timer_outlined,
-                        label: log.durationText,
+                        label: entry.durationText,
                       ),
-                    const SizedBox(width: 12),
-                    if (log.size != null)
-                      _InfoTag(icon: Icons.data_usage, label: log.sizeText),
+                    if (entry.duration != null) const SizedBox(width: 12),
+                    if (entry.responseSize != null)
+                      _InfoTag(
+                        icon: Icons.data_usage,
+                        label: entry.responseSizeText,
+                      ),
                   ],
+                ),
+              ],
+              if (entry.errorMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  entry.errorMessage!,
+                  style: const TextStyle(
+                    color: CustomColors.error,
+                    fontSize: 12,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MessageLogCard extends StatelessWidget {
+  const _MessageLogCard({required this.entry});
+  final MessageLogEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: entry.isError
+              ? CustomColors.error.withValues(alpha: .3)
+              : CustomColors.outlineVariant,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => showLogDetails(context, log: entry),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _Badge(label: entry.level.label, color: entry.level.color),
+                  const Spacer(),
+                  Text(
+                    entry.timeText,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      color: CustomColors.outline,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                entry.message,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                  color: CustomColors.onSurface,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (entry.url != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  entry.url!,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: CustomColors.outline,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ],
@@ -385,9 +537,9 @@ class _LogEntryCard extends StatelessWidget {
 
 /// Helper Widgets for the Card
 class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.color});
   final String label;
   final Color color;
-  const _Badge({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -410,9 +562,9 @@ class _Badge extends StatelessWidget {
 }
 
 class _StatusIndicator extends StatelessWidget {
+  const _StatusIndicator({required this.code, required this.color});
   final int code;
   final Color color;
-  const _StatusIndicator({required this.code, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -438,9 +590,9 @@ class _StatusIndicator extends StatelessWidget {
 }
 
 class _InfoTag extends StatelessWidget {
+  const _InfoTag({required this.icon, required this.label});
   final IconData icon;
   final String label;
-  const _InfoTag({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -454,18 +606,5 @@ class _InfoTag extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-Color _getTypeColor(ApiLogType type) {
-  switch (type) {
-    case ApiLogType.request:
-      return CustomColors.primary;
-    case ApiLogType.response:
-      return CustomColors.secondary;
-    case ApiLogType.error:
-      return CustomColors.error;
-    case ApiLogType.info:
-      return CustomColors.tertiary;
   }
 }

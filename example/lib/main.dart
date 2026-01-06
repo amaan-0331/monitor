@@ -47,12 +47,11 @@ class _MyHomePageState extends State<MyHomePage> {
   final _baseUrl = Uri.parse('https://jsonplaceholder.typicode.com');
 
   Future<void> _makeGetRequest() async {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final uri = _baseUrl.replace(path: '/posts/1');
+    final uri = _baseUrl.replace(path: '/posts');
     final stopwatch = Stopwatch()..start();
 
-    Monitor.requestDetail(
-      id: id,
+    // Start tracking the request - returns an ID for completion
+    final id = Monitor.startRequest(
       method: 'GET',
       uri: uri,
       headers: {'Content-Type': 'application/json'},
@@ -60,17 +59,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final response = await _client.get(uri);
 
-    Monitor.responseDetail(
+    // Complete the request with response data
+    Monitor.completeRequest(
       id: id,
-      uri: uri,
-      status: response.statusCode,
-      elapsed: stopwatch.elapsed,
-      bodyRaw: response.body,
+      statusCode: response.statusCode,
+      duration: stopwatch.elapsed,
+      responseBody: response.body,
     );
   }
 
   Future<void> _makePostRequest() async {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
     final uri = _baseUrl.replace(path: '/posts');
     final stopwatch = Stopwatch()..start();
     final requestBody = jsonEncode({
@@ -79,8 +77,8 @@ class _MyHomePageState extends State<MyHomePage> {
       'userId': 1,
     });
 
-    Monitor.requestDetail(
-      id: id,
+    // Start tracking the request with body
+    final id = Monitor.startRequest(
       method: 'POST',
       uri: uri,
       headers: {'Content-Type': 'application/json'},
@@ -93,22 +91,20 @@ class _MyHomePageState extends State<MyHomePage> {
       body: requestBody,
     );
 
-    Monitor.responseDetail(
+    // Complete with response
+    Monitor.completeRequest(
       id: id,
-      uri: uri,
-      status: response.statusCode,
-      elapsed: stopwatch.elapsed,
-      bodyRaw: response.body,
+      statusCode: response.statusCode,
+      duration: stopwatch.elapsed,
+      responseBody: response.body,
     );
   }
 
   Future<void> _makeFailedRequest() async {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
     final uri = _baseUrl.replace(path: '/posts/999999999');
     final stopwatch = Stopwatch()..start();
 
-    Monitor.requestDetail(
-      id: id,
+    final id = Monitor.startRequest(
       method: 'GET',
       uri: uri,
       headers: {'Content-Type': 'application/json'},
@@ -116,13 +112,35 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final response = await _client.get(uri);
 
-    Monitor.responseDetail(
+    // This will be marked as error due to 404 status
+    Monitor.completeRequest(
       id: id,
-      uri: uri,
-      status: response.statusCode,
-      elapsed: stopwatch.elapsed,
-      bodyRaw: response.body,
+      statusCode: response.statusCode,
+      duration: stopwatch.elapsed,
+      responseBody: response.body,
     );
+  }
+
+  Future<void> _makeNetworkErrorRequest() async {
+    final uri = Uri.parse('https://invalid-domain-that-does-not-exist.com/api');
+    final stopwatch = Stopwatch()..start();
+
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    try {
+      await _client.get(uri);
+    } catch (e) {
+      // Fail the request with error message
+      Monitor.failRequest(
+        id: id,
+        errorMessage: e.toString(),
+        duration: stopwatch.elapsed,
+      );
+    }
   }
 
   @override
@@ -149,13 +167,20 @@ class _MyHomePageState extends State<MyHomePage> {
               onPressed: _makeGetRequest,
               child: const Text('Make GET Request'),
             ),
+            const SizedBox(height: 8),
             ElevatedButton(
               onPressed: _makePostRequest,
               child: const Text('Make POST Request'),
             ),
+            const SizedBox(height: 8),
             ElevatedButton(
               onPressed: _makeFailedRequest,
-              child: const Text('Make Failed Request'),
+              child: const Text('Make 404 Request'),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _makeNetworkErrorRequest,
+              child: const Text('Make Network Error Request'),
             ),
           ],
         ),
