@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/ui/theme.dart';
-import 'package:monitor/src/utils/funtions.dart';
+import 'package:monitor/src/utils/functions.dart';
 
 void showLogDetails(BuildContext context, {required ApiLogEntry log}) {
   showModalBottomSheet<void>(

@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
+import 'package:monitor/src/utils/formatters.dart';
 
 /// Sophisticated API Logger service with in-memory storage and viewer support
 class Monitor {
@@ -58,7 +59,7 @@ class Monitor {
 
   /// Get success logs only
   List<ApiLogEntry> get successLogs =>
-      logs.where((log) => log.isSuccess).toList();
+      logs.where((log) => !log.isError).toList();
 
   /// Search logs by URL or message
   List<ApiLogEntry> search(String query) {
@@ -154,20 +155,13 @@ class Monitor {
   }
 
   static void info(String msg) => _log(msg, color: _blue);
-  static void success(String msg) =>
-      _log(msg, level: 'SUCCESS', color: _green, type: ApiLogType.success);
-  static void warning(String msg) =>
-      _log(msg, level: 'WARNING', color: _yellow, type: ApiLogType.warning);
+
   static void error(String msg) =>
       _log(msg, level: 'ERROR', color: _red, type: ApiLogType.error);
   static void request(String msg) =>
-      _log(msg, level: 'REQUEST', color: _cyan, type: ApiLogType.request);
+      _log(msg, level: 'REQ', color: _cyan, type: ApiLogType.request);
   static void response(String msg) =>
-      _log(msg, level: 'RESPONSE', color: _magenta, type: ApiLogType.response);
-  static void cache(String msg) =>
-      _log(msg, level: 'CACHE', color: _yellow, type: ApiLogType.cache);
-  static void auth(String msg) =>
-      _log(msg, level: 'AUTH', color: _green, type: ApiLogType.auth);
+      _log(msg, level: 'RES', color: _magenta, type: ApiLogType.response);
 
   static void init({
     required String baseUrl,
@@ -183,7 +177,7 @@ class Monitor {
       ApiLogEntry(
         id: _generateId('INIT'),
         timestamp: DateTime.now(),
-        type: ApiLogType.system,
+        type: ApiLogType.info,
         message:
             'API Service Initialized\n'
             'Base URL: $baseUrl\n'
@@ -223,7 +217,7 @@ class Monitor {
     String? body,
     int? bodyBytes,
   }) {
-    final redactedHeaders = _redactAuth(headers);
+    final redactedHeaders = redactAuth(headers);
 
     // Store in memory
     _instance._addLog(
@@ -252,8 +246,8 @@ class Monitor {
       '│ │ Headers:',
       ...prettyJson(redactedHeaders).split('\n').map((line) => '│ │   $line'),
       if (body != null && body.isNotEmpty) ...[
-        '│ │ Body (${_formatBytes(bodyBytes ?? utf8.encode(body).length)}):',
-        ..._truncateIfNeeded(body).split('\n').map((line) => '│ │   $line'),
+        '│ │ Body (${formatBytes(bodyBytes ?? utf8.encode(body).length)}):',
+        ...truncateIfNeeded(body).split('\n').map((line) => '│ │   $line'),
       ],
       '│ └────────────────────────────────────────────────────────────────',
       '└$separator┘',
@@ -293,9 +287,9 @@ class Monitor {
 
     if (!_enableApiConsoleLogs) return;
 
-    final decoded = _safeDecode(bodyRaw);
+    final decoded = safeDecode(bodyRaw);
     final pretty = prettyJson(decoded);
-    final sizeStr = _formatBytes(size);
+    final sizeStr = formatBytes(size);
     final timestamp = DateTime.now().toIso8601String();
     final separator = '═' * 80;
 
@@ -328,7 +322,7 @@ class Monitor {
       '│ │ Status: $statusIcon $status ($statusCategory) │ ${elapsed.inMilliseconds}ms │ $sizeStr',
       if (bodyRaw.isNotEmpty) ...[
         '│ │ Response:',
-        ..._truncateIfNeeded(pretty).split('\n').map((line) => '│ │   $line'),
+        ...truncateIfNeeded(pretty).split('\n').map((line) => '│ │   $line'),
       ],
       '│ └────────────────────────────────────────────────────────────────',
       '└$separator┘',
@@ -348,7 +342,7 @@ class Monitor {
       ApiLogEntry(
         id: id,
         timestamp: DateTime.now(),
-        type: ApiLogType.cacheHit,
+        type: ApiLogType.info,
         url: cacheKey,
         message: 'Cache hit - served from memory',
       ),
@@ -374,57 +368,6 @@ class Monitor {
       debugPrint(lines.map((line) => '$_yellow$line$_reset').join('\n'));
     } else {
       debugPrint(lines.join('\n'));
-    }
-  }
-
-  // Utility methods
-  static String prettyJson(dynamic jsonObject) {
-    try {
-      const encoder = JsonEncoder.withIndent('  ');
-      return encoder.convert(jsonObject);
-    } on Exception {
-      return jsonObject.toString();
-    }
-  }
-
-  static String _formatBytes(int bytes) {
-    const kb = 1024;
-    if (bytes < kb) return '${bytes}B';
-    final kbSize = bytes / kb;
-    if (kbSize < kb) return '${kbSize.toStringAsFixed(1)}KB';
-    final mbSize = kbSize / kb;
-    return '${mbSize.toStringAsFixed(2)}MB';
-  }
-
-  static String _truncateIfNeeded(String text, {int maxLength = 2000}) {
-    if (text.length <= maxLength) return text;
-    final keepStart = (maxLength * 0.7).floor();
-    final keepEnd = (maxLength * 0.3).floor();
-    final truncated = text.length - keepStart - keepEnd;
-    return '${text.substring(0, keepStart)}\n\n... [truncated $truncated characters] ...\n\n${text.substring(text.length - keepEnd)}';
-  }
-
-  static Map<String, String> _redactAuth(Map<String, String> headers) {
-    final redacted = Map<String, String>.from(headers);
-    final auth = redacted['Authorization'];
-    if (auth != null && auth.startsWith('Bearer ')) {
-      final token = auth.substring(7);
-      if (token.length > 12) {
-        redacted['Authorization'] =
-            'Bearer ${token.substring(0, 6)}***${token.substring(token.length - 6)}';
-      } else {
-        redacted['Authorization'] = 'Bearer ***';
-      }
-    }
-
-    return redacted;
-  }
-
-  static dynamic _safeDecode(String body) {
-    try {
-      return json.decode(body);
-    } on Exception {
-      return 'Failed to parse JSON: $body';
     }
   }
 

@@ -38,17 +38,15 @@ class ApiLogEntry {
     return 'SERVER ERROR';
   }
 
-  /// Returns true if this is an error response
-  bool get isError {
-    if (type == ApiLogType.error) return true;
-    if (statusCode == null) return false;
-    return statusCode! >= 400;
-  }
+  // Status logic
+  bool get isError =>
+      statusCode != null && statusCode! >= 400 || type == ApiLogType.error;
 
-  /// Returns true if this is a successful response
-  bool get isSuccess {
-    if (statusCode == null) return type == ApiLogType.success;
-    return statusCode! >= 200 && statusCode! < 300;
+  // Combine all size/meta logic into simple getters for the UI
+  String get summary {
+    if (type == ApiLogType.request) return '$method $shortUrl';
+    if (type == ApiLogType.response) return '$statusCode $shortUrl';
+    return message ?? '';
   }
 
   /// Returns a short display URL (path only)
@@ -146,20 +144,31 @@ class ApiLogEntry {
       size: size ?? this.size,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'timestamp': timestamp.toIso8601String(),
+      'type': type.label,
+      'method': method,
+      'url': url,
+      'statusCode': statusCode,
+      'duration': duration?.inMilliseconds,
+      'requestHeaders': requestHeaders,
+      'requestBody': requestBody,
+      'responseBody': responseBody,
+      'message': message,
+      'size': size,
+    };
+  }
 }
 
 /// Types of API log entries
 enum ApiLogType {
-  request('REQUEST'),
-  response('RESPONSE'),
-  cache('CACHE'),
-  cacheHit('CACHE HIT'),
-  auth('AUTH'),
-  error('ERROR'),
-  warning('WARNING'),
-  success('SUCCESS'),
-  info('INFO'),
-  system('SYSTEM');
+  request('REQ'),
+  response('RES'),
+  error('ERR'), // For network failures/exceptions (no response)
+  info('INFO'); // For system init, cache hits, or custom notes
 
   const ApiLogType(this.label);
   final String label;
