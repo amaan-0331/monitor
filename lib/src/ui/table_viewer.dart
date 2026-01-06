@@ -15,11 +15,84 @@ class TableLogViewer extends StatefulWidget {
 class _TableLogViewerState extends State<TableLogViewer> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  int _sortColumnIndex = 0;
+  bool _sortAscending = false;
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _sort<T>(
+    Comparable<T> Function(LogEntry log) getField,
+    int columnIndex,
+    bool ascending,
+  ) {
+    setState(() {
+      _sortColumnIndex = columnIndex;
+      _sortAscending = ascending;
+    });
+  }
+
+  List<LogEntry> _getSortedLogs(List<LogEntry> logs) {
+    final sortedLogs = List<LogEntry>.from(logs);
+
+    sortedLogs.sort((a, b) {
+      int compare;
+      switch (_sortColumnIndex) {
+        case 0: // Time
+          compare = a.timestamp.compareTo(b.timestamp);
+          break;
+        case 1: // State
+          final aState = a is HttpLogEntry
+              ? a.state.label
+              : (a as MessageLogEntry).level.label;
+          final bState = b is HttpLogEntry
+              ? b.state.label
+              : (b as MessageLogEntry).level.label;
+          compare = aState.compareTo(bState);
+          break;
+        case 2: // Method
+          final aMethod = a is HttpLogEntry ? a.method : '';
+          final bMethod = b is HttpLogEntry ? b.method : '';
+          compare = aMethod.compareTo(bMethod);
+          break;
+        case 3: // URL
+          final aUrl = a is HttpLogEntry
+              ? a.url
+              : (a as MessageLogEntry).message;
+          final bUrl = b is HttpLogEntry
+              ? b.url
+              : (b as MessageLogEntry).message;
+          compare = aUrl.compareTo(bUrl);
+          break;
+        case 4: // Status
+          final aStatus = a is HttpLogEntry ? (a.statusCode ?? 0) : 0;
+          final bStatus = b is HttpLogEntry ? (b.statusCode ?? 0) : 0;
+          compare = aStatus.compareTo(bStatus);
+          break;
+        case 5: // Duration
+          final aDuration = a is HttpLogEntry
+              ? (a.duration?.inMilliseconds ?? 0)
+              : 0;
+          final bDuration = b is HttpLogEntry
+              ? (b.duration?.inMilliseconds ?? 0)
+              : 0;
+          compare = aDuration.compareTo(bDuration);
+          break;
+        case 6: // Size
+          final aSize = a is HttpLogEntry ? (a.responseSize ?? 0) : 0;
+          final bSize = b is HttpLogEntry ? (b.responseSize ?? 0) : 0;
+          compare = aSize.compareTo(bSize);
+          break;
+        default:
+          compare = 0;
+      }
+      return _sortAscending ? compare : -compare;
+    });
+
+    return sortedLogs;
   }
 
   @override
@@ -82,20 +155,112 @@ class _TableLogViewerState extends State<TableLogViewer> {
                   final filteredLogs = _searchQuery.isEmpty
                       ? logs
                       : Monitor.instance.search(_searchQuery);
+                  final sortedLogs = _getSortedLogs(filteredLogs);
+
                   return SingleChildScrollView(
                     child: PaginatedDataTable(
                       header: const Text('Logs'),
-                      columns: const [
-                        DataColumn(label: Text('Time')),
-                        DataColumn(label: Text('State')),
-                        DataColumn(label: Text('Method')),
-                        DataColumn(label: Text('URL')),
-                        DataColumn(label: Text('Status')),
-                        DataColumn(label: Text('Duration')),
-                        DataColumn(label: Text('Size')),
+                      sortColumnIndex: _sortColumnIndex,
+                      sortAscending: _sortAscending,
+                      columns: [
+                        DataColumn(
+                          label: const Text('Time'),
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) => log.timestamp,
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('State'),
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) {
+                                return log is HttpLogEntry
+                                    ? log.state.label
+                                    : (log as MessageLogEntry).level.label;
+                              },
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('Method'),
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) {
+                                return log is HttpLogEntry ? log.method : '';
+                              },
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('URL'),
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) {
+                                return log is HttpLogEntry
+                                    ? log.url
+                                    : (log as MessageLogEntry).message;
+                              },
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('Status'),
+                          numeric: true,
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) {
+                                return log is HttpLogEntry
+                                    ? (log.statusCode ?? 0)
+                                    : 0;
+                              },
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('Duration'),
+                          numeric: true,
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) {
+                                return log is HttpLogEntry
+                                    ? (log.duration?.inMilliseconds ?? 0)
+                                    : 0;
+                              },
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
+                        DataColumn(
+                          label: const Text('Size'),
+                          numeric: true,
+                          onSort: (columnIndex, ascending) {
+                            _sort(
+                              (log) {
+                                return log is HttpLogEntry
+                                    ? (log.responseSize ?? 0)
+                                    : 0;
+                              },
+                              columnIndex,
+                              ascending,
+                            );
+                          },
+                        ),
                       ],
                       source: LogDataSource(
-                        logs: filteredLogs,
+                        logs: sortedLogs,
                         onRowTap: (log) {
                           showLogDetails(context, log: log);
                         },
@@ -166,7 +331,9 @@ class LogDataSource extends DataTableSource {
           Text(entry.durationText.isNotEmpty ? entry.durationText : '-'),
         ),
         clickableCell(
-          Text(entry.responseSizeText.isNotEmpty ? entry.responseSizeText : '-'),
+          Text(
+            entry.responseSizeText.isNotEmpty ? entry.responseSizeText : '-',
+          ),
         ),
       ],
     );
