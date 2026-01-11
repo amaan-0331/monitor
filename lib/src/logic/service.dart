@@ -1,7 +1,8 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
+import 'dart:async' show Stream, StreamController;
+import 'dart:convert' show utf8;
+import 'dart:io' show Platform;
+import 'dart:math' show Random;
+import 'dart:developer' as dev show log;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -319,9 +320,9 @@ class Monitor {
     ];
 
     if (_shouldUseColors) {
-      debugPrint(lines.map((line) => '$_white$line$_reset').join('\n'));
+      dev.log(lines.map((line) => '$_white$line$_reset').join('\n'));
     } else {
-      debugPrint(lines.join('\n'));
+      dev.log(lines.join('\n'));
     }
   }
 
@@ -356,9 +357,9 @@ class Monitor {
     ];
 
     if (_shouldUseColors) {
-      debugPrint(lines.map((line) => '$_cyan$line$_reset').join('\n'));
+      dev.log(lines.map((line) => '$_cyan$line$_reset').join('\n'));
     } else {
-      debugPrint(lines.join('\n'));
+      dev.log(lines.join('\n'));
     }
   }
 
@@ -408,9 +409,9 @@ class Monitor {
     ];
 
     if (_shouldUseColors) {
-      debugPrint(lines.map((line) => '$color$line$_reset').join('\n'));
+      dev.log(lines.map((line) => '$color$line$_reset').join('\n'));
     } else {
-      debugPrint(lines.join('\n'));
+      dev.log(lines.join('\n'));
     }
   }
 
@@ -433,9 +434,9 @@ class Monitor {
     ];
 
     if (_shouldUseColors) {
-      debugPrint(lines.map((line) => '$_red$line$_reset').join('\n'));
+      dev.log(lines.map((line) => '$_red$line$_reset').join('\n'));
     } else {
-      debugPrint(lines.join('\n'));
+      dev.log(lines.join('\n'));
     }
   }
 
@@ -456,14 +457,14 @@ class Monitor {
     }
 
     if (_shouldUseColors) {
-      debugPrint(
+      dev.log(
         '\n$color+$separator+$_reset\n'
         '$color| [${entry.level.label}] $timestamp$_reset\n'
         '$color| ${entry.message}$_reset\n'
         '$color+$separator+$_reset',
       );
     } else {
-      debugPrint(
+      dev.log(
         '\n+$separator+\n'
         '| [${entry.level.label}] $timestamp\n'
         '| ${entry.message}\n'
