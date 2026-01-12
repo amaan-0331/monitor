@@ -6,10 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:monitor/monitor.dart';
 
 void main() {
-  Monitor.init(
-    baseUrl: 'https://jsonplaceholder.typicode.com',
-    appVersion: '1.0.0',
-  );
+  Monitor.init();
   runApp(const MyApp());
 }
 
