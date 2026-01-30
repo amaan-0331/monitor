@@ -30,9 +30,15 @@ class Monitor {
   final Map<String, LogEntry> _logsById = {};
   final List<String> _logOrder = []; // Maintain insertion order
 
+  // Stopwatch storage for active requests
+  final Map<String, Stopwatch> _activeStopwatches = {};
+
   // Stream controller for real-time updates
   final _logStreamController = StreamController<List<LogEntry>>.broadcast();
   Stream<List<LogEntry>> get logStream => _logStreamController.stream;
+
+  // Cached color support check
+  static bool? _colorSupport;
 
   // Console color codes
   static const _reset = '\x1B[0m';
@@ -103,6 +109,7 @@ class Monitor {
   void clearLogs() {
     _logsById.clear();
     _logOrder.clear();
+    _activeStopwatches.clear();
     _notifyListeners();
   }
 
@@ -114,9 +121,10 @@ class Monitor {
     _logOrder.add(entry.id);
 
     // Trim logs if exceeding max
-    while (_logOrder.length > _config.maxLogs) {
+    if (_logOrder.length > _config.maxLogs) {
       final oldestId = _logOrder.removeAt(0);
       _logsById.remove(oldestId);
+      _activeStopwatches.remove(oldestId);
     }
 
     _notifyListeners();
@@ -128,11 +136,14 @@ class Monitor {
     if (!_logsById.containsKey(id)) return;
 
     _logsById[id] = entry;
+    _activeStopwatches.remove(id);
     _notifyListeners();
   }
 
   void _notifyListeners() {
-    _logStreamController.add(logs);
+    if (_logStreamController.hasListener) {
+      _logStreamController.add(logs);
+    }
   }
 
   /// Generate unique ID for log entries
@@ -142,6 +153,10 @@ class Monitor {
 
   // Check if we should use colors
   static bool get _shouldUseColors {
+    return _colorSupport ??= _checkColorSupport();
+  }
+
+  static bool _checkColorSupport() {
     if (kIsWeb) return false;
     try {
       return Platform.isAndroid ||
@@ -166,24 +181,22 @@ class Monitor {
     int? bodyBytes,
   }) {
     final url = uri.toString();
-
     final id = _generateId('HTTP');
 
-    // Redact headers
+    // Start stopwatch immediately
+    final stopwatch = Stopwatch()..start();
+    _instance._activeStopwatches[id] = stopwatch;
+
+    // Process headers and body only if needed
     final redactedHeaders = headers != null && _config.logRequestHeaders
         ? _redactHeaders(headers)
         : null;
 
-    // Redact and truncate body
     String? processedBody;
     int? processedSize;
     if (body != null && _config.logRequestBody) {
-      processedBody = _redactBody(body);
       processedSize = bodyBytes ?? utf8.encode(body).length;
-      processedBody = _config.truncateIfNeeded(
-        processedBody,
-        _config.maxBodyLength,
-      );
+      processedBody = _redactAndTruncateBody(body);
     }
 
     final entry = HttpLogEntry(
@@ -198,7 +211,11 @@ class Monitor {
     );
 
     _instance._addLog(entry);
-    _printRequest(entry);
+
+    // Print asynchronously to avoid blocking
+    if (_config.consoleFormat.isEnabled) {
+      Future.microtask(() => _printRequest(entry));
+    }
 
     return id;
   }
@@ -207,7 +224,6 @@ class Monitor {
   static void completeRequest({
     required String id,
     required int statusCode,
-    required Duration duration,
     Map<String, String>? responseHeaders,
     String? responseBody,
     int? responseSize,
@@ -221,26 +237,27 @@ class Monitor {
       return;
     }
 
+    // Get accurate duration from stopwatch
+    final stopwatch = _instance._activeStopwatches[id];
+    final duration = stopwatch != null
+        ? Duration(microseconds: stopwatch.elapsedMicroseconds)
+        : DateTime.now().difference(existing.timestamp);
+
     final state = statusCode >= 200 && statusCode < 400
         ? HttpLogState.success
         : HttpLogState.error;
 
-    // Redact headers
+    // Process headers and body only if needed
     final redactedHeaders =
         responseHeaders != null && _config.logResponseHeaders
         ? _redactHeaders(responseHeaders)
         : null;
 
-    // Redact and truncate body
     String? processedBody;
     int? processedSize;
     if (responseBody != null && _config.logResponseBody) {
-      processedBody = _redactBody(responseBody);
       processedSize = responseSize ?? utf8.encode(responseBody).length;
-      processedBody = _config.truncateIfNeeded(
-        processedBody,
-        _config.maxBodyLength,
-      );
+      processedBody = _redactAndTruncateBody(responseBody);
     }
 
     final updated = existing.complete(
@@ -253,14 +270,17 @@ class Monitor {
     );
 
     _instance._updateLog(id, updated);
-    _printResponse(updated);
+
+    // Print asynchronously
+    if (_config.consoleFormat.isEnabled) {
+      Future.microtask(() => _printResponse(updated));
+    }
   }
 
   /// Complete an HTTP request with error (network failure, exception)
   static void failRequest({
     required String id,
     required String errorMessage,
-    Duration? duration,
     bool isTimeout = false,
   }) {
     // Ignore filtered requests
@@ -272,6 +292,12 @@ class Monitor {
       return;
     }
 
+    // Get accurate duration from stopwatch
+    final stopwatch = _instance._activeStopwatches[id];
+    final duration = stopwatch != null
+        ? Duration(microseconds: stopwatch.elapsedMicroseconds)
+        : DateTime.now().difference(existing.timestamp);
+
     final updated = existing.complete(
       state: isTimeout ? HttpLogState.timeout : HttpLogState.error,
       duration: duration,
@@ -279,7 +305,11 @@ class Monitor {
     );
 
     _instance._updateLog(id, updated);
-    _printError(updated);
+
+    // Print asynchronously
+    if (_config.consoleFormat.isEnabled) {
+      Future.microtask(() => _printError(updated));
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -301,7 +331,11 @@ class Monitor {
     );
 
     _instance._addLog(entry);
-    _printMessage(entry);
+
+    // Print asynchronously
+    if (_config.consoleFormat.isEnabled) {
+      Future.microtask(() => _printMessage(entry));
+    }
   }
 
   // Convenience methods
@@ -318,56 +352,71 @@ class Monitor {
   // Privacy & Redaction
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Redact sensitive headers
+  /// Redact sensitive headers (optimized)
   static Map<String, String> _redactHeaders(Map<String, String> headers) {
     final redacted = <String, String>{};
+    final redactionKeys = _config.headerRedactionKeys;
+    final maxLen = _config.maxHeaderLength;
 
     for (final entry in headers.entries) {
       final keyLower = entry.key.toLowerCase();
-      final shouldRedact = _config.headerRedactionKeys.any(
-        (key) => keyLower.contains(key.toLowerCase()),
-      );
 
-      redacted[entry.key] = shouldRedact ? '***REDACTED***' : entry.value;
-    }
-
-    // Truncate if needed
-    if (_config.maxHeaderLength != null) {
-      final truncated = <String, String>{};
-      for (final entry in redacted.entries) {
-        truncated[entry.key] =
-            _config.truncateIfNeeded(entry.value, _config.maxHeaderLength) ??
-            entry.value;
+      // Check redaction
+      var value = entry.value;
+      for (final redactKey in redactionKeys) {
+        if (keyLower.contains(redactKey.toLowerCase())) {
+          value = '***REDACTED***';
+          break;
+        }
       }
-      return truncated;
+
+      // Truncate if needed
+      if (maxLen != null && value.length > maxLen) {
+        value = '${value.substring(0, maxLen)}...';
+      }
+
+      redacted[entry.key] = value;
     }
 
     return redacted;
   }
 
-  /// Redact sensitive body fields (works with JSON)
-  static String _redactBody(String body) {
+  /// Redact and truncate body in one pass
+  static String _redactAndTruncateBody(String body) {
+    String processed = body;
+
+    // Try JSON redaction
     try {
-      // Try to parse as JSON
       final decoded = json.decode(body);
       final redacted = _redactJsonObject(decoded);
-      return prettyJson(redacted);
+      processed = prettyJson(redacted);
     } catch (_) {
-      // Not JSON, return as-is
-      return body;
+      // Not JSON, use as-is
     }
+
+    // Truncate
+    return _config.truncateIfNeeded(processed, _config.maxBodyLength) ??
+        processed;
   }
 
   /// Recursively redact JSON object
   static dynamic _redactJsonObject(dynamic obj) {
     if (obj is Map) {
       final redacted = <String, dynamic>{};
+      final redactionKeys = _config.bodyRedactionKeys;
+
       for (final entry in obj.entries) {
         final key = entry.key.toString();
         final keyLower = key.toLowerCase();
-        final shouldRedact = _config.bodyRedactionKeys.any(
-          (redactKey) => keyLower.contains(redactKey.toLowerCase()),
-        );
+
+        // Check if key should be redacted
+        var shouldRedact = false;
+        for (final redactKey in redactionKeys) {
+          if (keyLower.contains(redactKey.toLowerCase())) {
+            shouldRedact = true;
+            break;
+          }
+        }
 
         if (shouldRedact) {
           redacted[key] = '***REDACTED***';
@@ -452,7 +501,6 @@ class Monitor {
   // ═══════════════════════════════════════════════════════════════════════════
   // Console Output
   // ═══════════════════════════════════════════════════════════════════════════
-
   static void _printRequest(HttpLogEntry entry) {
     if (!_config.consoleFormat.isEnabled) return;
 
@@ -506,8 +554,6 @@ class Monitor {
   }
 
   static void _printResponse(HttpLogEntry entry) {
-    if (!_config.consoleFormat.isEnabled) return;
-
     final timestamp = DateTime.now().toIso8601String();
 
     if (_config.consoleFormat == ConsoleLogFormat.simple) {
@@ -517,11 +563,11 @@ class Monitor {
 
     // Verbose format
     final separator = '=' * 80;
+    final status = entry.statusCode ?? 0;
 
     String statusCategory;
     String color;
     String statusIcon;
-    final status = entry.statusCode ?? 0;
 
     if (status >= 200 && status < 300) {
       statusCategory = 'SUCCESS';
@@ -666,5 +712,6 @@ class Monitor {
   /// Dispose resources
   void dispose() {
     _logStreamController.close();
+    _activeStopwatches.clear();
   }
 }

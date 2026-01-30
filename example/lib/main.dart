@@ -66,7 +66,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _makeGetRequest() async {
     final uri = _baseUrl.replace(path: '/posts');
-    final stopwatch = Stopwatch()..start();
     final id = Monitor.startRequest(
       method: 'GET',
       uri: uri,
@@ -76,14 +75,12 @@ class _MyHomePageState extends State<MyHomePage> {
     Monitor.completeRequest(
       id: id,
       statusCode: response.statusCode,
-      duration: stopwatch.elapsed,
       responseBody: response.body,
     );
   }
 
   Future<void> _makePostRequest() async {
     final uri = _baseUrl.replace(path: '/posts');
-    final stopwatch = Stopwatch()..start();
     final body = jsonEncode({'title': 'foo', 'body': 'bar', 'userId': 1});
     final id = Monitor.startRequest(
       method: 'POST',
@@ -99,36 +96,28 @@ class _MyHomePageState extends State<MyHomePage> {
     Monitor.completeRequest(
       id: id,
       statusCode: response.statusCode,
-      duration: stopwatch.elapsed,
       responseBody: response.body,
     );
   }
 
   Future<void> _makeFailedRequest() async {
     final uri = _baseUrl.replace(path: '/posts/999999999');
-    final stopwatch = Stopwatch()..start();
     final id = Monitor.startRequest(method: 'GET', uri: uri);
     final response = await _client.get(uri);
     Monitor.completeRequest(
       id: id,
       statusCode: response.statusCode,
-      duration: stopwatch.elapsed,
       responseBody: response.body,
     );
   }
 
   Future<void> _makeNetworkErrorRequest() async {
     final uri = Uri.parse('https://invalid-domain-that-does-not-exist.com/api');
-    final stopwatch = Stopwatch()..start();
     final id = Monitor.startRequest(method: 'GET', uri: uri);
     try {
       await _client.get(uri);
     } catch (e) {
-      Monitor.failRequest(
-        id: id,
-        errorMessage: e.toString(),
-        duration: stopwatch.elapsed,
-      );
+      Monitor.failRequest(id: id, errorMessage: e.toString());
     }
   }
 
