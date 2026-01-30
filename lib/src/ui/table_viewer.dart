@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:monitor/src/logic/service.dart';
+import 'package:monitor/monitor.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/ui/details.dart';
 import 'package:monitor/src/ui/theme.dart';

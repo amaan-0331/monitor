@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:monitor/src/logic/service.dart';
+import 'package:monitor/monitor.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/ui/details.dart';
 import 'package:monitor/src/ui/table_viewer.dart';
@@ -74,10 +74,7 @@ class _MonitorViewState extends State<MonitorView> {
         ),
         body: IndexedStack(
           index: _currentIndex,
-          children: const [
-            _ListView(),
-            TableLogViewer(),
-          ],
+          children: const [_ListView(), TableLogViewer()],
         ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
@@ -87,10 +84,7 @@ class _MonitorViewState extends State<MonitorView> {
             });
           },
           items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.list),
-              label: 'List',
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.list), label: 'List'),
             BottomNavigationBarItem(
               icon: Icon(Icons.table_chart),
               label: 'Table',
@@ -369,8 +363,8 @@ class _HttpLogCard extends StatelessWidget {
           color: entry.isError
               ? CustomColors.error.withValues(alpha: .3)
               : entry.isPending
-                  ? CustomColors.warning.withValues(alpha: .3)
-                  : CustomColors.outlineVariant,
+              ? CustomColors.warning.withValues(alpha: .3)
+              : CustomColors.outlineVariant,
         ),
       ),
       child: InkWell(
