@@ -1,12 +1,14 @@
 import 'dart:developer' as dev show log;
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/models/config.dart';
+import 'package:monitor/src/privacy/monitor_redactor.dart';
 import 'package:monitor/src/utils/color_support.dart';
 import 'package:monitor/src/utils/formatters.dart';
 
 class ConsolePrinter {
-  ConsolePrinter(this._config);
+  ConsolePrinter(this._config, this._redactor);
   final MonitorConfig _config;
+  final MonitorRedactor _redactor;
 
   void printInitialization() {
     if (!_config.consoleFormat.isEnabled) return;
@@ -69,7 +71,10 @@ class ConsolePrinter {
       ],
       if (entry.requestBody != null && entry.requestBody!.isNotEmpty) ...[
         '| | Body (${formatBytes(entry.requestSize ?? 0)}):',
-        ...entry.requestBody!.split('\n').map((line) => '| |   $line'),
+        ..._redactor
+            .redactAndTruncateBody(entry.requestBody!)
+            .split('\n')
+            .map((line) => '| |   $line'),
       ],
       '| +------------------------------------------------------------',
       '+$separator+',
@@ -134,7 +139,10 @@ class ConsolePrinter {
       '| | Status: $statusIcon $status ($statusCategory) | ${entry.durationText} | ${entry.responseSizeText}',
       if (entry.responseBody != null && entry.responseBody!.isNotEmpty) ...[
         '| | Response:',
-        ...entry.responseBody!.split('\n').map((line) => '| |   $line'),
+        ..._redactor
+            .redactAndTruncateBody(entry.responseBody!)
+            .split('\n')
+            .map((line) => '| |   $line'),
       ],
       '| +------------------------------------------------------------',
       '+$separator+',

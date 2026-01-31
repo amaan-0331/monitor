@@ -48,7 +48,7 @@ class Monitor {
     _instance._storage = MonitorStorage(_config);
     _instance._streamManager = StreamControllerManager();
     _instance._redactor = MonitorRedactor(_config);
-    _instance._printer = ConsolePrinter(_config);
+    _instance._printer = ConsolePrinter(_config, _instance._redactor);
     _instance._httpTracker = HttpRequestTracker(
       storage: _instance._storage,
       printer: _instance._printer,

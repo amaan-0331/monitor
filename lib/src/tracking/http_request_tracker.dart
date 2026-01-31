@@ -42,7 +42,7 @@ class HttpRequestTracker {
     int? processedSize;
     if (body != null && config.logRequestBody) {
       processedSize = bodyBytes ?? utf8.encode(body).length;
-      processedBody = redactor.redactAndTruncateBody(body);
+      processedBody = body;
     }
 
     final HttpLogEntry entry = HttpLogEntry(
@@ -104,7 +104,7 @@ class HttpRequestTracker {
     int? processedSize;
     if (responseBody != null && config.logResponseBody) {
       processedSize = responseSize ?? utf8.encode(responseBody).length;
-      processedBody = redactor.redactAndTruncateBody(responseBody);
+      processedBody = responseBody;
     }
 
     final HttpLogEntry updated = existing.complete(
