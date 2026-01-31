@@ -44,9 +44,12 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final _client = http.Client();
-  final _baseUrl = Uri.parse('https://jsonplaceholder.typicode.com');
+  final _baseUrl = Uri.parse('https://dummyjson.com');
   Timer? _periodicTimer;
   bool _isPeriodicRunning = false;
+
+  // Auth token storage for authenticated requests
+  String? _authToken;
 
   @override
   void dispose() {
@@ -65,7 +68,43 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _makeGetRequest() async {
-    final uri = _baseUrl.replace(path: '/posts');
+    final uri = _baseUrl.replace(
+      path: '/products',
+      queryParameters: {'limit': '10'},
+    );
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeGetSingleProduct() async {
+    final uri = _baseUrl.replace(path: '/products/1');
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeSearchRequest() async {
+    final uri = _baseUrl.replace(
+      path: '/products/search',
+      queryParameters: {'q': 'phone'},
+    );
     final id = Monitor.startRequest(
       method: 'GET',
       uri: uri,
@@ -80,8 +119,13 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _makePostRequest() async {
-    final uri = _baseUrl.replace(path: '/posts');
-    final body = jsonEncode({'title': 'foo', 'body': 'bar', 'userId': 1});
+    final uri = _baseUrl.replace(path: '/products/add');
+    final body = jsonEncode({
+      'title': 'Flutter Test Product',
+      'price': 99.99,
+      'category': 'electronics',
+      'description': 'Added from Flutter Network Monitor',
+    });
     final id = Monitor.startRequest(
       method: 'POST',
       uri: uri,
@@ -100,10 +144,232 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Future<void> _makeFailedRequest() async {
-    final uri = _baseUrl.replace(path: '/posts/999999999');
-    final id = Monitor.startRequest(method: 'GET', uri: uri);
+  Future<void> _makePutRequest() async {
+    final uri = _baseUrl.replace(path: '/products/1');
+    final body = jsonEncode({
+      'title': 'Updated Product Title',
+      'price': 149.99,
+    });
+    final id = Monitor.startRequest(
+      method: 'PUT',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    final response = await _client.put(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makePatchRequest() async {
+    final uri = _baseUrl.replace(path: '/products/1');
+    final body = jsonEncode({'price': 79.99});
+    final id = Monitor.startRequest(
+      method: 'PATCH',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    final response = await _client.patch(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeDeleteRequest() async {
+    final uri = _baseUrl.replace(path: '/products/1');
+    final id = Monitor.startRequest(
+      method: 'DELETE',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.delete(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  // ==================== AUTHENTICATION ====================
+
+  Future<void> _makeLoginRequest() async {
+    final uri = _baseUrl.replace(path: '/auth/login');
+    final body = jsonEncode({
+      'username': 'emilys', // DummyJSON test user
+      'password': 'emilyspass',
+      'expiresInMins': 30,
+    });
+    final id = Monitor.startRequest(
+      method: 'POST',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    // Store token for authenticated requests
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      _authToken = data['token'];
+    }
+
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeGetCurrentUser() async {
+    if (_authToken == null) {
+      debugPrint('No auth token. Login first.');
+      return;
+    }
+
+    final uri = _baseUrl.replace(path: '/auth/me');
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_authToken',
+      },
+    );
+    final response = await _client.get(
+      uri,
+      headers: {'Authorization': 'Bearer $_authToken'},
+    );
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeGetUsers() async {
+    final uri = _baseUrl.replace(
+      path: '/users',
+      queryParameters: {'limit': '5'},
+    );
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
     final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeGetPosts() async {
+    final uri = _baseUrl.replace(
+      path: '/posts',
+      queryParameters: {'limit': '5'},
+    );
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeGetTodos() async {
+    final uri = _baseUrl.replace(
+      path: '/todos',
+      queryParameters: {'limit': '5'},
+    );
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeGetQuotes() async {
+    final uri = _baseUrl.replace(
+      path: '/quotes',
+      queryParameters: {'limit': '3'},
+    );
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeFailedRequest() async {
+    // 404 - Product not found
+    final uri = _baseUrl.replace(path: '/products/999999999');
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  Future<void> _makeBadRequest() async {
+    // 400 - Bad request (missing required fields)
+    final uri = _baseUrl.replace(path: '/products/add');
+    final body = jsonEncode({
+      // Missing required 'title' field
+      'price': 99.99,
+    });
+    final id = Monitor.startRequest(
+      method: 'POST',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
     Monitor.completeRequest(
       id: id,
       statusCode: response.statusCode,
@@ -113,7 +379,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _makeNetworkErrorRequest() async {
     final uri = Uri.parse('https://invalid-domain-that-does-not-exist.com/api');
-    final id = Monitor.startRequest(method: 'GET', uri: uri);
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
     try {
       await _client.get(uri);
     } catch (e) {
@@ -128,11 +398,36 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       setState(() => _isPeriodicRunning = true);
       _periodicTimer = Timer.periodic(
-        const Duration(seconds: 1),
-        (timer) => _makeGetRequest(),
+        const Duration(seconds: 2), // Slower for variety
+        (timer) {
+          // Cycle through different endpoints
+          final endpoints = ['/products', '/users', '/posts', '/quotes'];
+          final endpoint = endpoints[timer.tick % endpoints.length];
+          _makePeriodicRequest(endpoint);
+        },
       );
     }
   }
+
+  Future<void> _makePeriodicRequest(String endpoint) async {
+    final uri = _baseUrl.replace(
+      path: endpoint,
+      queryParameters: {'limit': '1'},
+    );
+    final id = Monitor.startRequest(
+      method: 'GET',
+      uri: uri,
+      headers: {'Content-Type': 'application/json'},
+    );
+    final response = await _client.get(uri);
+    Monitor.completeRequest(
+      id: id,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+    );
+  }
+
+  // ==================== UI BUILD ====================
 
   @override
   Widget build(BuildContext context) {
@@ -153,29 +448,92 @@ class _MyHomePageState extends State<MyHomePage> {
         padding: const EdgeInsets.all(16),
         children: [
           _buildCard(
-            title: 'Standard Methods',
-            icon: Icons.sync,
+            title: 'Products (CRUD)',
+            icon: Icons.shopping_bag_outlined,
             children: [
               _ActionTile(
-                label: 'Fetch Posts',
-                icon: Icons.download,
+                label: 'List Products',
+                icon: Icons.list,
                 onTap: () => _handleRequest(_makeGetRequest),
               ),
               _ActionTile(
-                label: 'Create Post',
-                icon: Icons.add_box_outlined,
+                label: 'Get Product',
+                icon: Icons.visibility,
+                onTap: () => _handleRequest(_makeGetSingleProduct),
+              ),
+              _ActionTile(
+                label: 'Search',
+                icon: Icons.search,
+                onTap: () => _handleRequest(_makeSearchRequest),
+              ),
+              _ActionTile(
+                label: 'Create',
+                icon: Icons.add,
+                color: Colors.green.shade600,
                 onTap: () => _handleRequest(_makePostRequest),
               ),
               _ActionTile(
-                label: 'Update Post',
-                icon: Icons.edit_note,
-                onTap: () => _handleRequest(_makeGetRequest), // simplified
+                label: 'Update (PUT)',
+                icon: Icons.edit,
+                color: Colors.blue.shade600,
+                onTap: () => _handleRequest(_makePutRequest),
               ),
               _ActionTile(
-                label: 'Delete Post',
-                icon: Icons.delete_outline,
+                label: 'Patch',
+                icon: Icons.edit_attributes,
+                color: Colors.purple.shade600,
+                onTap: () => _handleRequest(_makePatchRequest),
+              ),
+              _ActionTile(
+                label: 'Delete',
+                icon: Icons.delete,
                 color: Colors.red.shade400,
-                onTap: () => _handleRequest(_makeGetRequest), // simplified
+                onTap: () => _handleRequest(_makeDeleteRequest),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildCard(
+            title: 'Authentication',
+            icon: Icons.lock_outline,
+            children: [
+              _ActionTile(
+                label: 'Login',
+                icon: Icons.login,
+                color: Colors.indigo,
+                onTap: () => _handleRequest(_makeLoginRequest),
+              ),
+              _ActionTile(
+                label: 'Current User',
+                icon: Icons.person,
+                onTap: () => _handleRequest(_makeGetCurrentUser),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildCard(
+            title: 'Other Resources',
+            icon: Icons.folder_outlined,
+            children: [
+              _ActionTile(
+                label: 'Users',
+                icon: Icons.people,
+                onTap: () => _handleRequest(_makeGetUsers),
+              ),
+              _ActionTile(
+                label: 'Posts',
+                icon: Icons.article,
+                onTap: () => _handleRequest(_makeGetPosts),
+              ),
+              _ActionTile(
+                label: 'Todos',
+                icon: Icons.check_circle,
+                onTap: () => _handleRequest(_makeGetTodos),
+              ),
+              _ActionTile(
+                label: 'Quotes',
+                icon: Icons.format_quote,
+                onTap: () => _handleRequest(_makeGetQuotes),
               ),
             ],
           ),
@@ -185,9 +543,14 @@ class _MyHomePageState extends State<MyHomePage> {
             icon: Icons.report_problem_outlined,
             children: [
               _ActionTile(
-                label: 'Simulate 404',
+                label: '404 Not Found',
                 icon: Icons.find_replace,
                 onTap: _makeFailedRequest,
+              ),
+              _ActionTile(
+                label: '400 Bad Request',
+                icon: Icons.error_outline,
+                onTap: _makeBadRequest,
               ),
               _ActionTile(
                 label: 'DNS Failure',
@@ -272,12 +635,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
                 const Spacer(),
-                if (_isPeriodicRunning)
-                  _PulseIndicator(), // Visual cue that it's running
+                if (_isPeriodicRunning) _PulseIndicator(),
               ],
             ),
             const Divider(height: 24),
-            // Using a Container instead of GridView to prevent overflow
             Container(
               decoration: BoxDecoration(
                 color: _isPeriodicRunning
@@ -295,8 +656,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   _isPeriodicRunning ? Icons.timer : Icons.timer_off_outlined,
                   color: _isPeriodicRunning ? Colors.indigo : Colors.grey,
                 ),
-                title: const Text('Periodic GET Requests'),
-                subtitle: const Text('1 request every second'),
+                title: const Text('Periodic Requests'),
+                subtitle: const Text('Cycles through endpoints every 2s'),
                 value: _isPeriodicRunning,
                 onChanged: (_) => _togglePeriodicRequests(),
               ),
