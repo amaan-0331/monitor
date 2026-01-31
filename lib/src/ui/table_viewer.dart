@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:monitor/monitor.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
-import 'package:monitor/src/ui/details.dart';
+import 'package:monitor/src/ui/log_details/details_sheet.dart';
 import 'package:monitor/src/ui/theme.dart';
 
 class TableLogViewer extends StatefulWidget {
