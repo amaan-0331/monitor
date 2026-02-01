@@ -7,8 +7,8 @@ import 'package:monitor/src/models/api_log_entry.dart';
 
 void copyToClipboard(BuildContext context, {required LogEntry log}) {
   final text = switch (log) {
-    HttpLogEntry entry => _formatHttpLog(entry),
-    MessageLogEntry entry => _formatMessageLog(entry),
+    final HttpLogEntry entry => _formatHttpLog(entry),
+    final MessageLogEntry entry => _formatMessageLog(entry),
   };
 
   Clipboard.setData(ClipboardData(text: text));

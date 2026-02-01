@@ -43,7 +43,7 @@ class Monitor {
   }
 
   static void init({MonitorConfig? config}) {
-    _config = config ?? MonitorConfig();
+    _config = config ?? const MonitorConfig();
 
     _instance._storage = MonitorStorage(_config);
     _instance._streamManager = StreamControllerManager();
@@ -122,7 +122,7 @@ class Monitor {
     _instance._messageLogger.log(msg, level: level, url: url);
   }
 
-  static void info(String msg) => message(msg, level: MessageLevel.info);
+  static void info(String msg) => message(msg);
   static void warning(String msg) => message(msg, level: MessageLevel.warning);
   static void error(String msg) => message(msg, level: MessageLevel.error);
   static void cacheHit({required String cacheKey}) =>

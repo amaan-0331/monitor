@@ -66,7 +66,8 @@ final class HttpLogEntry extends LogEntry {
   // State helpers
   bool get isPending => state == HttpLogState.pending;
   bool get isSuccess => state == HttpLogState.success;
-  bool get isError => state == HttpLogState.error || state == HttpLogState.timeout;
+  bool get isError =>
+      state == HttpLogState.error || state == HttpLogState.timeout;
   bool get isCompleted => !isPending;
 
   /// Returns the status category based on status code
@@ -230,7 +231,8 @@ enum HttpLogState {
   pending('PENDING'),
   success('SUCCESS'),
   error('ERROR'),
-  timeout('TIMEOUT');
+  timeout('TIMEOUT')
+  ;
 
   const HttpLogState(this.label);
   final String label;
@@ -253,7 +255,8 @@ enum HttpLogState {
 enum MessageLevel {
   info('INFO'),
   warning('WARN'),
-  error('ERROR');
+  error('ERROR')
+  ;
 
   const MessageLevel(this.label);
   final String label;

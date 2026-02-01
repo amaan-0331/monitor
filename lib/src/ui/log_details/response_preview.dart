@@ -18,7 +18,7 @@ const bool _kEnableHtmlWrapping = false;
 enum PreviewMode { json, raw, html }
 
 class ResponsePreview extends StatefulWidget {
-  const ResponsePreview({super.key, required this.entry});
+  const ResponsePreview({required this.entry, super.key});
   final HttpLogEntry entry;
 
   @override
@@ -80,7 +80,7 @@ class _ResponsePreviewState extends State<ResponsePreview> {
         return (encoder.convert(decoded), null);
       } on FormatException catch (e) {
         return (null, e.message);
-      } catch (e) {
+      } on Exception catch (e) {
         return (null, e.toString());
       }
     }).then((result) {

@@ -3,6 +3,7 @@
 # Monitor
 
 [![pub.dev](https://img.shields.io/pub/v/monitor.svg?label=pub.dev)](https://pub.dev/packages/monitor)
+[![style: very good analysis](https://img.shields.io/badge/style-very_good_analysis-B22C89.svg)](https://pub.dev/packages/very_good_analysis)
 [![platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Web%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux-blue)](#)
 
 </div>

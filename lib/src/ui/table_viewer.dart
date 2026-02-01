@@ -36,61 +36,53 @@ class _TableLogViewerState extends State<TableLogViewer> {
   }
 
   List<LogEntry> _getSortedLogs(List<LogEntry> logs) {
-    final sortedLogs = List<LogEntry>.from(logs);
-
-    sortedLogs.sort((a, b) {
-      int compare;
-      switch (_sortColumnIndex) {
-        case 0: // Time
-          compare = a.timestamp.compareTo(b.timestamp);
-          break;
-        case 1: // State
-          final aState = a is HttpLogEntry
-              ? a.state.label
-              : (a as MessageLogEntry).level.label;
-          final bState = b is HttpLogEntry
-              ? b.state.label
-              : (b as MessageLogEntry).level.label;
-          compare = aState.compareTo(bState);
-          break;
-        case 2: // Method
-          final aMethod = a is HttpLogEntry ? a.method : '';
-          final bMethod = b is HttpLogEntry ? b.method : '';
-          compare = aMethod.compareTo(bMethod);
-          break;
-        case 3: // URL
-          final aUrl = a is HttpLogEntry
-              ? a.url
-              : (a as MessageLogEntry).message;
-          final bUrl = b is HttpLogEntry
-              ? b.url
-              : (b as MessageLogEntry).message;
-          compare = aUrl.compareTo(bUrl);
-          break;
-        case 4: // Status
-          final aStatus = a is HttpLogEntry ? (a.statusCode ?? 0) : 0;
-          final bStatus = b is HttpLogEntry ? (b.statusCode ?? 0) : 0;
-          compare = aStatus.compareTo(bStatus);
-          break;
-        case 5: // Duration
-          final aDuration = a is HttpLogEntry
-              ? (a.duration?.inMilliseconds ?? 0)
-              : 0;
-          final bDuration = b is HttpLogEntry
-              ? (b.duration?.inMilliseconds ?? 0)
-              : 0;
-          compare = aDuration.compareTo(bDuration);
-          break;
-        case 6: // Size
-          final aSize = a is HttpLogEntry ? (a.responseSize ?? 0) : 0;
-          final bSize = b is HttpLogEntry ? (b.responseSize ?? 0) : 0;
-          compare = aSize.compareTo(bSize);
-          break;
-        default:
-          compare = 0;
-      }
-      return _sortAscending ? compare : -compare;
-    });
+    final sortedLogs = List<LogEntry>.from(logs)
+      ..sort((a, b) {
+        int compare;
+        switch (_sortColumnIndex) {
+          case 0: // Time
+            compare = a.timestamp.compareTo(b.timestamp);
+          case 1: // State
+            final aState = a is HttpLogEntry
+                ? a.state.label
+                : (a as MessageLogEntry).level.label;
+            final bState = b is HttpLogEntry
+                ? b.state.label
+                : (b as MessageLogEntry).level.label;
+            compare = aState.compareTo(bState);
+          case 2: // Method
+            final aMethod = a is HttpLogEntry ? a.method : '';
+            final bMethod = b is HttpLogEntry ? b.method : '';
+            compare = aMethod.compareTo(bMethod);
+          case 3: // URL
+            final aUrl = a is HttpLogEntry
+                ? a.url
+                : (a as MessageLogEntry).message;
+            final bUrl = b is HttpLogEntry
+                ? b.url
+                : (b as MessageLogEntry).message;
+            compare = aUrl.compareTo(bUrl);
+          case 4: // Status
+            final aStatus = a is HttpLogEntry ? (a.statusCode ?? 0) : 0;
+            final bStatus = b is HttpLogEntry ? (b.statusCode ?? 0) : 0;
+            compare = aStatus.compareTo(bStatus);
+          case 5: // Duration
+            final aDuration = a is HttpLogEntry
+                ? (a.duration?.inMilliseconds ?? 0)
+                : 0;
+            final bDuration = b is HttpLogEntry
+                ? (b.duration?.inMilliseconds ?? 0)
+                : 0;
+            compare = aDuration.compareTo(bDuration);
+          case 6: // Size
+            final aSize = a is HttpLogEntry ? (a.responseSize ?? 0) : 0;
+            final bSize = b is HttpLogEntry ? (b.responseSize ?? 0) : 0;
+            compare = aSize.compareTo(bSize);
+          default:
+            compare = 0;
+        }
+        return _sortAscending ? compare : -compare;
+      });
 
     return sortedLogs;
   }
@@ -116,7 +108,7 @@ class _TableLogViewerState extends State<TableLogViewer> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(8.0),
+              padding: const EdgeInsets.all(8),
               child: TextField(
                 controller: _searchController,
                 style: const TextStyle(color: CustomColors.onSurface),
@@ -265,7 +257,6 @@ class _TableLogViewerState extends State<TableLogViewer> {
                           showLogDetails(context, log: log);
                         },
                       ),
-                      rowsPerPage: 10,
                     ),
                   );
                 },
@@ -289,8 +280,8 @@ class LogDataSource extends DataTableSource {
     final log = logs[index];
 
     return switch (log) {
-      HttpLogEntry entry => _buildHttpRow(entry),
-      MessageLogEntry entry => _buildMessageRow(entry),
+      final HttpLogEntry entry => _buildHttpRow(entry),
+      final MessageLogEntry entry => _buildMessageRow(entry),
     };
   }
 

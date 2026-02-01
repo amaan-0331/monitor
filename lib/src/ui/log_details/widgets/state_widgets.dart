@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:monitor/src/ui/theme.dart';
 
 class EmptyState extends StatelessWidget {
-  const EmptyState({super.key, required this.message});
+  const EmptyState({required this.message, super.key});
   final String message;
 
   @override
@@ -20,7 +20,7 @@ class EmptyState extends StatelessWidget {
 }
 
 class PendingState extends StatelessWidget {
-  const PendingState({super.key, required this.url});
+  const PendingState({required this.url, super.key});
   final String url;
 
   @override
@@ -64,7 +64,7 @@ class PendingState extends StatelessWidget {
 }
 
 class LoadingBlock extends StatelessWidget {
-  const LoadingBlock({super.key, required this.message});
+  const LoadingBlock({required this.message, super.key});
   final String message;
 
   @override
@@ -98,7 +98,7 @@ class LoadingBlock extends StatelessWidget {
 }
 
 class ErrorBlock extends StatelessWidget {
-  const ErrorBlock({super.key, required this.message});
+  const ErrorBlock({required this.message, super.key});
   final String message;
 
   @override
@@ -111,7 +111,6 @@ class ErrorBlock extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: CustomColors.error.withValues(alpha: 0.2),
-          width: 1,
         ),
       ),
       child: SelectableText(

@@ -13,7 +13,8 @@ enum ConsoleLogFormat {
   simple,
 
   /// Full detailed box format with headers and bodies
-  verbose;
+  verbose
+  ;
 
   bool get isEnabled => this != ConsoleLogFormat.none;
 }
@@ -25,27 +26,6 @@ enum ConsoleLogFormat {
 /// Monitor configuration with all customization options
 @immutable
 class MonitorConfig {
-  // Storage options
-  final int maxLogs;
-  final bool enableLogStorage;
-
-  // Console output options
-  final ConsoleLogFormat consoleFormat;
-
-  // Content truncation
-  final int? maxBodyLength; // null = no truncation
-  final int? maxHeaderLength; // null = no truncation
-
-  // Privacy & redaction
-  final List<String> headerRedactionKeys;
-  final List<String> bodyRedactionKeys;
-
-  // Feature toggles
-  final bool logRequestHeaders;
-  final bool logResponseHeaders;
-  final bool logRequestBody;
-  final bool logResponseBody;
-
   const MonitorConfig({
     // Storage defaults
     this.maxLogs = 500,
@@ -84,6 +64,27 @@ class MonitorConfig {
     this.logRequestBody = true,
     this.logResponseBody = true,
   });
+
+  // Storage options
+  final int maxLogs;
+  final bool enableLogStorage;
+
+  // Console output options
+  final ConsoleLogFormat consoleFormat;
+
+  // Content truncation
+  final int? maxBodyLength; // null = no truncation
+  final int? maxHeaderLength; // null = no truncation
+
+  // Privacy & redaction
+  final List<String> headerRedactionKeys;
+  final List<String> bodyRedactionKeys;
+
+  // Feature toggles
+  final bool logRequestHeaders;
+  final bool logResponseHeaders;
+  final bool logRequestBody;
+  final bool logResponseBody;
 
   /// Create a copy with modified fields
   MonitorConfig copyWith({

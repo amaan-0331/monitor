@@ -12,10 +12,10 @@ class ConsolePrinter {
 
   void printInitialization() {
     if (!_config.consoleFormat.isEnabled) return;
-    final String timestamp = DateTime.now().toIso8601String();
+    final timestamp = DateTime.now().toIso8601String();
 
     if (_config.consoleFormat == ConsoleLogFormat.simple) {
-      final String message =
+      final message =
           'ℹ API Service Initialized | '
           'Storage: ${_config.enableLogStorage ? 'On' : 'Off'} | '
           'MaxLogs: ${_config.maxLogs}';
@@ -27,8 +27,8 @@ class ConsolePrinter {
       return;
     }
 
-    final String separator = '=' * 80;
-    final List<String> lines = [
+    final separator = '=' * 80;
+    final lines = <String>[
       '+$separator+',
       '| [SYSTEM] $timestamp',
       '| API Service Initialized',
@@ -50,15 +50,15 @@ class ConsolePrinter {
 
   void printRequest(HttpLogEntry entry) {
     if (!_config.consoleFormat.isEnabled) return;
-    final String timestamp = entry.timestamp.toIso8601String();
+    final timestamp = entry.timestamp.toIso8601String();
 
     if (_config.consoleFormat == ConsoleLogFormat.simple) {
       _printSimpleRequest(entry, timestamp);
       return;
     }
 
-    final String separator = '=' * 80;
-    final List<String> lines = [
+    final separator = '=' * 80;
+    final lines = <String>[
       '+$separator+',
       '| [REQUEST] $timestamp',
       '| +- REQUEST [${entry.id}] ------------------------------------',
@@ -66,7 +66,7 @@ class ConsolePrinter {
       if (entry.requestHeaders != null && entry.requestHeaders!.isNotEmpty) ...[
         '| | Headers:',
         ...prettyJson(
-          entry.requestHeaders!,
+          entry.requestHeaders,
         ).split('\n').map((line) => '| |   $line'),
       ],
       if (entry.requestBody != null && entry.requestBody!.isNotEmpty) ...[
@@ -91,10 +91,10 @@ class ConsolePrinter {
   }
 
   void _printSimpleRequest(HttpLogEntry entry, String timestamp) {
-    final String size = entry.requestSize != null
+    final size = entry.requestSize != null
         ? formatBytes(entry.requestSize!)
         : '';
-    final String message = '→ ${entry.method} ${entry.url} $size';
+    final message = '→ ${entry.method} ${entry.url} $size';
     if (ColorSupport.isSupported) {
       dev.log('${AnsiColors.cyan}[$timestamp] $message${AnsiColors.reset}');
     } else {
@@ -103,14 +103,14 @@ class ConsolePrinter {
   }
 
   void printResponse(HttpLogEntry entry) {
-    final String timestamp = DateTime.now().toIso8601String();
+    final timestamp = DateTime.now().toIso8601String();
     if (_config.consoleFormat == ConsoleLogFormat.simple) {
       _printSimpleResponse(entry, timestamp);
       return;
     }
 
-    final String separator = '=' * 80;
-    final int status = entry.statusCode ?? 0;
+    final separator = '=' * 80;
+    final status = entry.statusCode ?? 0;
     late final String statusCategory;
     late final String color;
     late final String statusIcon;
@@ -131,7 +131,7 @@ class ConsolePrinter {
       color = AnsiColors.red;
       statusIcon = '✗';
     }
-    final List<String> lines = [
+    final lines = <String>[
       '+$separator+',
       '| [RESPONSE] $timestamp',
       '| +- RESPONSE [${entry.id}] -----------------------------------',
@@ -155,12 +155,12 @@ class ConsolePrinter {
   }
 
   void _printSimpleResponse(HttpLogEntry entry, String timestamp) {
-    final int status = entry.statusCode ?? 0;
-    final String color = status >= 200 && status < 400
+    final status = entry.statusCode ?? 0;
+    final color = status >= 200 && status < 400
         ? AnsiColors.green
         : AnsiColors.red;
-    final String icon = status >= 200 && status < 400 ? '✓' : '✗';
-    final String message =
+    final icon = status >= 200 && status < 400 ? '✓' : '✗';
+    final message =
         '← $icon $status ${entry.method} ${entry.url} ${entry.durationText} ${entry.responseSizeText}';
     if (ColorSupport.isSupported) {
       dev.log('$color[$timestamp] $message${AnsiColors.reset}');
@@ -171,9 +171,9 @@ class ConsolePrinter {
 
   void printError(HttpLogEntry entry) {
     if (!_config.consoleFormat.isEnabled) return;
-    final String timestamp = DateTime.now().toIso8601String();
+    final timestamp = DateTime.now().toIso8601String();
     if (_config.consoleFormat == ConsoleLogFormat.simple) {
-      final String message =
+      final message =
           '✗ ERROR ${entry.method} ${entry.url} - ${entry.errorMessage ?? entry.state.label}';
       if (ColorSupport.isSupported) {
         dev.log('${AnsiColors.red}[$timestamp] $message${AnsiColors.reset}');
@@ -182,8 +182,8 @@ class ConsolePrinter {
       }
       return;
     }
-    final String separator = '=' * 80;
-    final List<String> lines = [
+    final separator = '=' * 80;
+    final lines = <String>[
       '+$separator+',
       '| [ERROR] $timestamp',
       '| +- ERROR [${entry.id}] --------------------------------------',
@@ -207,7 +207,7 @@ class ConsolePrinter {
 
   void printMessage(MessageLogEntry entry) {
     if (!_config.consoleFormat.isEnabled) return;
-    final String timestamp = entry.timestamp.toIso8601String();
+    final timestamp = entry.timestamp.toIso8601String();
     late final String color;
     late final String icon;
     switch (entry.level) {
@@ -223,7 +223,7 @@ class ConsolePrinter {
     }
 
     if (_config.consoleFormat == ConsoleLogFormat.simple) {
-      final String message = '$icon ${entry.message}';
+      final message = '$icon ${entry.message}';
       if (ColorSupport.isSupported) {
         dev.log('$color[$timestamp] $message${AnsiColors.reset}');
       } else {
@@ -232,7 +232,7 @@ class ConsolePrinter {
       return;
     }
 
-    final String separator = '-' * 80;
+    final separator = '-' * 80;
     if (ColorSupport.isSupported) {
       dev.log(
         '\n$color+$separator+${AnsiColors.reset}\n'

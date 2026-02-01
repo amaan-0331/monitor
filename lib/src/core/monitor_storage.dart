@@ -14,7 +14,7 @@ class MonitorStorage {
     _logsById[entry.id] = entry;
     _logOrder.add(entry.id);
     if (_logOrder.length > _config.maxLogs) {
-      final String oldestId = _logOrder.removeAt(0);
+      final oldestId = _logOrder.removeAt(0);
       _logsById.remove(oldestId);
       _activeStopwatches.remove(oldestId);
     }
@@ -38,7 +38,7 @@ class MonitorStorage {
   Stopwatch? getStopwatch(String id) => _activeStopwatches[id];
 
   void startStopwatch(String id) {
-    final Stopwatch stopwatch = Stopwatch()..start();
+    final stopwatch = Stopwatch()..start();
     _activeStopwatches[id] = stopwatch;
   }
 
@@ -65,8 +65,8 @@ class MonitorStorage {
 
   List<LogEntry> get errorLogs => logs.where((log) {
     return switch (log) {
-      HttpLogEntry entry => entry.isError,
-      MessageLogEntry entry => entry.isError,
+      final HttpLogEntry entry => entry.isError,
+      final MessageLogEntry entry => entry.isError,
     };
   }).toList();
 
@@ -77,13 +77,13 @@ class MonitorStorage {
       httpLogs.where((log) => log.isPending).toList();
 
   List<LogEntry> search(String query) {
-    final String lowerQuery = query.toLowerCase();
+    final lowerQuery = query.toLowerCase();
     return logs.where((log) {
       return switch (log) {
-        HttpLogEntry entry =>
+        final HttpLogEntry entry =>
           entry.url.toLowerCase().contains(lowerQuery) ||
               entry.method.toLowerCase().contains(lowerQuery),
-        MessageLogEntry entry =>
+        final MessageLogEntry entry =>
           entry.message.toLowerCase().contains(lowerQuery) ||
               (entry.url?.toLowerCase().contains(lowerQuery) ?? false),
       };

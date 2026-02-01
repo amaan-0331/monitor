@@ -5,7 +5,7 @@ import 'package:monitor/src/ui/theme.dart';
 import 'package:monitor/src/utils/functions.dart';
 
 class MessageLogDetailsSheet extends StatelessWidget {
-  const MessageLogDetailsSheet({super.key, required this.entry});
+  const MessageLogDetailsSheet({required this.entry, super.key});
   final MessageLogEntry entry;
 
   static const _titleStyle = TextStyle(

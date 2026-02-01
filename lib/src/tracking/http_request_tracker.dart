@@ -29,12 +29,11 @@ class HttpRequestTracker {
     String? body,
     int? bodyBytes,
   }) {
-    final String url = uri.toString();
-    final String id = MonitorIdGenerator.generate('HTTP');
+    final url = uri.toString();
+    final id = MonitorIdGenerator.generate('HTTP');
     storage.startStopwatch(id);
 
-    final Map<String, String>? redactedHeaders =
-        headers != null && config.logRequestHeaders
+    final redactedHeaders = headers != null && config.logRequestHeaders
         ? redactor.redactHeaders(headers)
         : null;
 
@@ -45,7 +44,7 @@ class HttpRequestTracker {
       processedBody = body;
     }
 
-    final HttpLogEntry entry = HttpLogEntry(
+    final entry = HttpLogEntry(
       id: id,
       timestamp: DateTime.now(),
       method: method,
@@ -70,7 +69,7 @@ class HttpRequestTracker {
     int? responseSize,
   }) {
     if (id.startsWith('HTTP-FILTERED')) return;
-    final LogEntry? existing = storage.getLog(id);
+    final existing = storage.getLog(id);
     if (existing == null || existing is! HttpLogEntry) {
       Future.microtask(
         () => printer.printMessage(
@@ -86,17 +85,16 @@ class HttpRequestTracker {
       return;
     }
 
-    final Stopwatch? stopwatch = storage.getStopwatch(id);
-    final Duration duration = stopwatch != null
+    final stopwatch = storage.getStopwatch(id);
+    final duration = stopwatch != null
         ? Duration(microseconds: stopwatch.elapsedMicroseconds)
         : DateTime.now().difference(existing.timestamp);
 
-    final HttpLogState state = statusCode >= 200 && statusCode < 400
+    final state = statusCode >= 200 && statusCode < 400
         ? HttpLogState.success
         : HttpLogState.error;
 
-    final Map<String, String>? redactedHeaders =
-        responseHeaders != null && config.logResponseHeaders
+    final redactedHeaders = responseHeaders != null && config.logResponseHeaders
         ? redactor.redactHeaders(responseHeaders)
         : null;
 
@@ -107,7 +105,7 @@ class HttpRequestTracker {
       processedBody = responseBody;
     }
 
-    final HttpLogEntry updated = existing.complete(
+    final updated = existing.complete(
       state: state,
       statusCode: statusCode,
       duration: duration,
@@ -116,8 +114,9 @@ class HttpRequestTracker {
       responseSize: processedSize,
     );
 
-    storage.updateLog(id, updated);
-    storage.removeStopwatch(id);
+    storage
+      ..updateLog(id, updated)
+      ..removeStopwatch(id);
     streamManager.notify(storage.logs);
     Future.microtask(() => printer.printResponse(updated));
   }
@@ -128,7 +127,7 @@ class HttpRequestTracker {
     bool isTimeout = false,
   }) {
     if (id.startsWith('HTTP-FILTERED')) return;
-    final LogEntry? existing = storage.getLog(id);
+    final existing = storage.getLog(id);
     if (existing == null || existing is! HttpLogEntry) {
       Future.microtask(
         () => printer.printMessage(
@@ -144,19 +143,20 @@ class HttpRequestTracker {
       return;
     }
 
-    final Stopwatch? stopwatch = storage.getStopwatch(id);
-    final Duration duration = stopwatch != null
+    final stopwatch = storage.getStopwatch(id);
+    final duration = stopwatch != null
         ? Duration(microseconds: stopwatch.elapsedMicroseconds)
         : DateTime.now().difference(existing.timestamp);
 
-    final HttpLogEntry updated = existing.complete(
+    final updated = existing.complete(
       state: isTimeout ? HttpLogState.timeout : HttpLogState.error,
       duration: duration,
       errorMessage: errorMessage,
     );
 
-    storage.updateLog(id, updated);
-    storage.removeStopwatch(id);
+    storage
+      ..updateLog(id, updated)
+      ..removeStopwatch(id);
     streamManager.notify(storage.logs);
     Future.microtask(() => printer.printError(updated));
   }

@@ -28,21 +28,21 @@ class SyntaxHighlighter {
     if (json is Map) {
       if (json.isEmpty) return _closeBrace;
 
-      final children = <TextSpan>[];
-      children.add(_openBrace);
+      final children = <TextSpan>[_openBrace];
 
       final entries = json.entries.toList();
-      for (int i = 0; i < entries.length; i++) {
+      for (var i = 0; i < entries.length; i++) {
         final entry = entries[i];
-        children.add(TextSpan(text: nextSpacing));
-        children.add(
-          TextSpan(
-            text: '"${entry.key}"',
-            style: const TextStyle(color: keyColor),
-          ),
-        );
-        children.add(_colonSpace);
-        children.add(buildTree(entry.value, indent + 1));
+        children
+          ..add(TextSpan(text: nextSpacing))
+          ..add(
+            TextSpan(
+              text: '"${entry.key}"',
+              style: const TextStyle(color: keyColor),
+            ),
+          )
+          ..add(_colonSpace)
+          ..add(buildTree(entry.value, indent + 1));
         if (i < entries.length - 1) children.add(_comma);
         children.add(_newline);
       }
@@ -52,12 +52,11 @@ class SyntaxHighlighter {
     } else if (json is List) {
       if (json.isEmpty) return _closeBracket;
 
-      final children = <TextSpan>[];
-      children.add(_openBracket);
-
-      for (int i = 0; i < json.length; i++) {
-        children.add(TextSpan(text: nextSpacing));
-        children.add(buildTree(json[i], indent + 1));
+      final children = <TextSpan>[_openBracket];
+      for (var i = 0; i < json.length; i++) {
+        children
+          ..add(TextSpan(text: nextSpacing))
+          ..add(buildTree(json[i], indent + 1));
         if (i < json.length - 1) children.add(_comma);
         children.add(_newline);
       }

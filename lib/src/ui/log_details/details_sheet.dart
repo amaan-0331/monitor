@@ -15,14 +15,14 @@ void showLogDetails(BuildContext context, {required LogEntry log}) {
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (context) => switch (log) {
-      HttpLogEntry entry => HttpLogDetailsSheet(entry: entry),
-      MessageLogEntry entry => MessageLogDetailsSheet(entry: entry),
+      final HttpLogEntry entry => HttpLogDetailsSheet(entry: entry),
+      final MessageLogEntry entry => MessageLogDetailsSheet(entry: entry),
     },
   );
 }
 
 class HttpLogDetailsSheet extends StatelessWidget {
-  const HttpLogDetailsSheet({super.key, required this.entry});
+  const HttpLogDetailsSheet({required this.entry, super.key});
   final HttpLogEntry entry;
 
   static const _headerPadding = EdgeInsets.fromLTRB(16, 12, 8, 12);
@@ -37,7 +37,6 @@ class HttpLogDetailsSheet extends StatelessWidget {
     labelColor: CustomColors.primary,
     unselectedLabelColor: CustomColors.onSurfaceVariant,
     indicatorColor: CustomColors.primary,
-    indicatorWeight: 2,
   );
 
   @override
@@ -107,7 +106,10 @@ class HttpLogDetailsSheet extends StatelessWidget {
 }
 
 class StateBadge extends StatelessWidget {
-  const StateBadge({super.key, required this.entry});
+  const StateBadge({
+    required this.entry,
+    super.key,
+  });
   final HttpLogEntry entry;
 
   @override
@@ -147,9 +149,9 @@ class StateBadge extends StatelessWidget {
 
 class OverviewTab extends StatelessWidget {
   const OverviewTab({
-    super.key,
     required this.entry,
     required this.bottomPadding,
+    super.key,
   });
   final HttpLogEntry entry;
   final double bottomPadding;
@@ -193,9 +195,9 @@ class OverviewTab extends StatelessWidget {
 
 class RequestTab extends StatelessWidget {
   const RequestTab({
-    super.key,
     required this.entry,
     required this.bottomPadding,
+    super.key,
   });
   final HttpLogEntry entry;
   final double bottomPadding;
@@ -240,9 +242,9 @@ class RequestTab extends StatelessWidget {
 
 class ResponseTab extends StatelessWidget {
   const ResponseTab({
-    super.key,
     required this.entry,
     required this.bottomPadding,
+    super.key,
   });
   final HttpLogEntry entry;
   final double bottomPadding;

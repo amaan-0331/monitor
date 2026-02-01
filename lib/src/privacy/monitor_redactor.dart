@@ -7,15 +7,15 @@ class MonitorRedactor {
   final MonitorConfig _config;
 
   Map<String, String> redactHeaders(Map<String, String> headers) {
-    final Map<String, String> redacted = <String, String>{};
-    final List<String> redactionKeys = _config.headerRedactionKeys;
-    final int? maxLen = _config.maxHeaderLength;
+    final redacted = <String, String>{};
+    final redactionKeys = _config.headerRedactionKeys;
+    final maxLen = _config.maxHeaderLength;
 
-    for (final MapEntry<String, String> entry in headers.entries) {
-      final String keyLower = entry.key.toLowerCase();
-      String value = entry.value;
+    for (final entry in headers.entries) {
+      final keyLower = entry.key.toLowerCase();
+      var value = entry.value;
 
-      for (final String redactKey in redactionKeys) {
+      for (final redactKey in redactionKeys) {
         if (keyLower.contains(redactKey.toLowerCase())) {
           value = '***REDACTED***';
           break;
@@ -33,25 +33,25 @@ class MonitorRedactor {
   }
 
   String redactAndTruncateBody(String body) {
-    String processed = body;
+    var processed = body;
     try {
       final dynamic decoded = json.decode(body);
       final dynamic redacted = redactJsonObject(decoded);
       processed = prettyJson(redacted);
-    } catch (_) {}
+    } on Exception catch (_) {}
     return _config.truncateIfNeeded(processed, _config.maxBodyLength) ??
         processed;
   }
 
   dynamic redactJsonObject(dynamic obj) {
     if (obj is Map) {
-      final Map<String, dynamic> redacted = <String, dynamic>{};
-      final List<String> redactionKeys = _config.bodyRedactionKeys;
-      for (final MapEntry<dynamic, dynamic> entry in obj.entries) {
-        final String key = entry.key.toString();
-        final String keyLower = key.toLowerCase();
-        bool shouldRedact = false;
-        for (final String redactKey in redactionKeys) {
+      final redacted = <String, dynamic>{};
+      final redactionKeys = _config.bodyRedactionKeys;
+      for (final entry in obj.entries) {
+        final key = entry.key.toString();
+        final keyLower = key.toLowerCase();
+        var shouldRedact = false;
+        for (final redactKey in redactionKeys) {
           if (keyLower.contains(redactKey.toLowerCase())) {
             shouldRedact = true;
             break;

@@ -20,7 +20,7 @@ class MessageLogger {
     MessageLevel level = MessageLevel.info,
     String? url,
   }) {
-    final MessageLogEntry entry = MessageLogEntry(
+    final entry = MessageLogEntry(
       id: MonitorIdGenerator.generate('MSG'),
       timestamp: DateTime.now(),
       level: level,
@@ -32,7 +32,7 @@ class MessageLogger {
     Future.microtask(() => printer.printMessage(entry));
   }
 
-  void info(String message) => log(message, level: MessageLevel.info);
+  void info(String message) => log(message);
   void warning(String message) => log(message, level: MessageLevel.warning);
   void error(String message) => log(message, level: MessageLevel.error);
 }

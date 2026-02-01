@@ -21,7 +21,7 @@ class HandleBar extends StatelessWidget {
 }
 
 class Section extends StatelessWidget {
-  const Section({super.key, required this.title, required this.child});
+  const Section({required this.title, required this.child, super.key});
   final String title;
   final Widget child;
 
@@ -46,7 +46,7 @@ class Section extends StatelessWidget {
 }
 
 class InfoGrid extends StatelessWidget {
-  const InfoGrid({super.key, required this.items});
+  const InfoGrid({required this.items, super.key});
   final List<(String, String)> items;
 
   static const _labelStyle = TextStyle(
@@ -84,12 +84,12 @@ class InfoGrid extends StatelessWidget {
 }
 
 class CodeBlock extends StatelessWidget {
-  const CodeBlock({super.key, required this.code, this.isError = false});
+  const CodeBlock({required this.code, super.key, this.isError = false});
   final String code;
   final bool isError;
 
-  static const _errorBackgroundColor = CustomColors.error;
-  static const _surfaceColor = CustomColors.surfaceContainerHigh;
+  static const Color _errorBackgroundColor = CustomColors.error;
+  static const Color _surfaceColor = CustomColors.surfaceContainerHigh;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +104,6 @@ class CodeBlock extends StatelessWidget {
         border: isError
             ? Border.all(
                 color: _errorBackgroundColor.withValues(alpha: 0.2),
-                width: 1,
               )
             : null,
       ),
@@ -123,10 +122,7 @@ class CodeBlock extends StatelessWidget {
 
 class ModeChip extends StatelessWidget {
   const ModeChip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
+    required this.label, required this.selected, required this.onTap, super.key,
   });
 
   final String label;
@@ -135,8 +131,8 @@ class ModeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = CustomColors.primary;
-    final outlineColor = CustomColors.outline;
+    const primaryColor = CustomColors.primary;
+    const outlineColor = CustomColors.outline;
 
     return InkWell(
       onTap: onTap,
@@ -152,7 +148,6 @@ class ModeChip extends StatelessWidget {
             color: selected
                 ? primaryColor.withValues(alpha: 0.3)
                 : outlineColor.withValues(alpha: 0.3),
-            width: 1,
           ),
         ),
         child: Text(

@@ -139,7 +139,7 @@ class _ListViewState extends State<_ListView> {
     if (_selectedStates.isNotEmpty) {
       filtered = filtered.where((log) {
         return switch (log) {
-          HttpLogEntry entry => _selectedStates.contains(entry.state),
+          final HttpLogEntry entry => _selectedStates.contains(entry.state),
           MessageLogEntry() => true, // Don't filter messages by HTTP state
         };
       }).toList();
@@ -149,7 +149,7 @@ class _ListViewState extends State<_ListView> {
     if (_selectedMethods.isNotEmpty) {
       filtered = filtered.where((log) {
         return switch (log) {
-          HttpLogEntry entry => _selectedMethods.contains(entry.method),
+          final HttpLogEntry entry => _selectedMethods.contains(entry.method),
           MessageLogEntry() => true, // Don't filter messages by method
         };
       }).toList();
@@ -343,8 +343,8 @@ class _LogEntryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (log) {
-      HttpLogEntry entry => _HttpLogCard(entry: entry),
-      MessageLogEntry entry => _MessageLogCard(entry: entry),
+      final HttpLogEntry entry => _HttpLogCard(entry: entry),
+      final MessageLogEntry entry => _MessageLogCard(entry: entry),
     };
   }
 }
