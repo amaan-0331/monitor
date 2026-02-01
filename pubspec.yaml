@@ -1,6 +1,6 @@
 name: monitor
-description: "A new Flutter package project."
-version: 0.0.1
+description: "A flutter package to monitor HTTP API Requests."
+version: 1.0.0
 repository: https://github.com/amaan-0331/monitor
 
 environment:
