@@ -69,7 +69,12 @@ class ConsolePrinter {
           entry.requestHeaders,
         ).split('\n').map((line) => '| |   $line'),
       ],
-      if (entry.requestBody != null && entry.requestBody!.isNotEmpty) ...[
+      // Display multipart info if present
+      if (entry.multipartInfo != null) ...[
+        '| | Multipart Request (${entry.multipartInfo!.summary}):',
+        ...entry.multipartInfo!.parts.map((p) => '| |   - ${p.displayText}'),
+      ] else if (entry.requestBody != null &&
+          entry.requestBody!.isNotEmpty) ...[
         '| | Body (${formatBytes(entry.requestSize ?? 0)}):',
         ..._redactor
             .redactAndTruncateBody(entry.requestBody!)

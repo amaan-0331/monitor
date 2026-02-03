@@ -122,7 +122,10 @@ class CodeBlock extends StatelessWidget {
 
 class ModeChip extends StatelessWidget {
   const ModeChip({
-    required this.label, required this.selected, required this.onTap, super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
   });
 
   final String label;

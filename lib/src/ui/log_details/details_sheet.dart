@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
+import 'package:monitor/src/models/multipart_info.dart';
 import 'package:monitor/src/ui/log_details/message_log_details_sheet.dart';
 import 'package:monitor/src/ui/log_details/response_preview.dart';
 import 'package:monitor/src/ui/log_details/widgets/shared_widgets.dart';
@@ -208,8 +209,9 @@ class RequestTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasHeaders = entry.requestHeaders?.isNotEmpty ?? false;
     final hasBody = entry.requestBody != null;
+    final hasMultipart = entry.multipartInfo != null;
 
-    if (!hasHeaders && !hasBody) {
+    if (!hasHeaders && !hasBody && !hasMultipart) {
       return const EmptyState(message: 'No request data');
     }
 
@@ -223,9 +225,15 @@ class RequestTab extends StatelessWidget {
               title: 'Headers',
               child: CodeBlock(code: _encoder.convert(entry.requestHeaders)),
             ),
-            if (hasBody) const SizedBox(height: 16),
+            if (hasBody || hasMultipart) const SizedBox(height: 16),
           ],
-          if (hasBody)
+          // Display multipart info if present
+          if (hasMultipart) ...[
+            Section(
+              title: 'Multipart Request · ${entry.multipartInfo!.summary}',
+              child: _MultipartInfoWidget(info: entry.multipartInfo!),
+            ),
+          ] else if (hasBody)
             Section(
               title:
                   'Body${entry.requestSize != null ? ' · ${entry.requestSizeText}' : ''}',
@@ -234,6 +242,56 @@ class RequestTab extends StatelessWidget {
               ),
             ),
           SizedBox(height: bottomPadding + 16),
+        ],
+      ),
+    );
+  }
+}
+
+/// Widget to display multipart request parts
+class _MultipartInfoWidget extends StatelessWidget {
+  const _MultipartInfoWidget({required this.info});
+  final MultipartInfo info;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: CustomColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final part in info.parts) _buildPartRow(part),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPartRow(MultipartPartInfo part) {
+    final icon = part.isFile ? Icons.attach_file : Icons.text_fields;
+    final color = part.isFile
+        ? CustomColors.primary
+        : CustomColors.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              part.displayText,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: CustomColors.onSurface,
+              ),
+            ),
+          ),
         ],
       ),
     );
