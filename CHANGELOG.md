@@ -1,3 +1,11 @@
+## 1.1.0
+
+### Features
+
+- Add multipart/form-data parsing with part metadata and sizes
+- Surface multipart summaries in request details UI and console output
+- Support raw request bytes for accurate multipart inspection
+
 ## 1.0.0
 
 - Initial stable release
