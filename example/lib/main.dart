@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:monitor/monitor.dart';
+
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 void main() {
   Monitor.init();
@@ -202,6 +205,81 @@ class _MyHomePageState extends State<MyHomePage> {
       statusCode: response.statusCode,
       responseBody: response.body,
     );
+  }
+
+  Future<void> _makeMultipartUpload() async {
+    final uri = _baseUrl.replace(path: '/products/add');
+
+    // Create a real multipart request
+    final request = http.MultipartRequest('POST', uri);
+
+    // Add text form fields
+    request.fields['title'] = 'Flutter Multipart Product';
+    request.fields['price'] = '149.99';
+    request.fields['category'] = 'electronics';
+    request.fields['description'] = 'Real multipart upload demo';
+
+    // Simulate file uploads (in production, use FilePicker/ImagePicker)
+    // Image file (1KB dummy data)
+    final imageBytes = Uint8List.fromList(List.generate(1024, (i) => i % 256));
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'productImage',
+        imageBytes,
+        filename: 'product_photo.jpg',
+        contentType: MediaType('image', 'jpeg'),
+      ),
+    );
+
+    // Document file (2KB dummy data)
+    final pdfBytes = Uint8List.fromList(List.generate(2048, (i) => i % 128));
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'specSheet',
+        pdfBytes,
+        filename: 'specifications.pdf',
+        contentType: MediaType('application', 'pdf'),
+      ),
+    );
+
+    // Finalize to get the actual body stream and content-type with boundary
+    final byteStream = request.finalize();
+    final bodyBytes = await byteStream.toBytes();
+
+    // Now we can get the real content-type with boundary
+    final contentType = request.headers['content-type']!;
+
+    // Convert body to string for logging (note: binary parts will be garbled)
+    final bodyString = String.fromCharCodes(bodyBytes);
+
+    // Start monitoring with the REAL headers and body
+    final id = Monitor.startRequest(
+      method: 'POST',
+      uri: uri,
+      headers: {'Content-Type': contentType},
+      body: bodyString,
+      bodyBytes: bodyBytes.length,
+      bodyRawBytes: bodyBytes,
+    );
+
+    try {
+      // Create a new request with the captured bytes (since we consumed the stream)
+      final newRequest = http.Request('POST', uri);
+      newRequest.headers['Content-Type'] = contentType;
+      newRequest.bodyBytes = bodyBytes;
+
+      final streamedResponse = await _client.send(newRequest);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      Monitor.completeRequest(
+        id: id,
+        statusCode: response.statusCode,
+        responseBody: response.body,
+      );
+    } catch (e) {
+      Monitor.failRequest(id: id, errorMessage: e.toString());
+      debugPrint('Multipart upload failed: $e');
+    }
   }
 
   // ==================== AUTHENTICATION ====================
@@ -489,6 +567,12 @@ class _MyHomePageState extends State<MyHomePage> {
                 icon: Icons.delete,
                 color: Colors.red.shade400,
                 onTap: () => _handleRequest(_makeDeleteRequest),
+              ),
+              _ActionTile(
+                label: 'Multipart Upload',
+                icon: Icons.upload_file,
+                color: Colors.teal,
+                onTap: () => _handleRequest(_makeMultipartUpload),
               ),
             ],
           ),
