@@ -1,11 +1,15 @@
 import 'dart:convert' show utf8;
+import 'dart:typed_data';
+
 import 'package:monitor/src/core/monitor_storage.dart';
 import 'package:monitor/src/core/stream_controller_manager.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/models/config.dart';
+import 'package:monitor/src/models/multipart_info.dart';
 import 'package:monitor/src/output/console_printer.dart';
 import 'package:monitor/src/privacy/monitor_redactor.dart';
 import 'package:monitor/src/utils/id_generator.dart';
+import 'package:monitor/src/utils/multipart_parser.dart';
 
 class HttpRequestTracker {
   HttpRequestTracker({
@@ -28,6 +32,7 @@ class HttpRequestTracker {
     Map<String, String>? headers,
     String? body,
     int? bodyBytes,
+    Uint8List? bodyRawBytes,
   }) {
     final url = uri.toString();
     final id = MonitorIdGenerator.generate('HTTP');
@@ -39,8 +44,23 @@ class HttpRequestTracker {
 
     String? processedBody;
     int? processedSize;
-    if (body != null && config.logRequestBody) {
-      processedSize = bodyBytes ?? utf8.encode(body).length;
+    MultipartInfo? multipartInfo;
+
+    // Check for multipart request
+    if (config.logRequestBody && MultipartParser.isMultipart(headers)) {
+      multipartInfo = MultipartParser.parse(
+        headers: headers,
+        body: body,
+        bodyRawBytes: bodyRawBytes,
+      );
+      if (multipartInfo != null) {
+        processedBody = multipartInfo.placeholderBody;
+        processedSize =
+            bodyBytes ?? bodyRawBytes?.length ?? multipartInfo.totalSize;
+      }
+    } else if (body != null && config.logRequestBody) {
+      processedSize =
+          bodyBytes ?? bodyRawBytes?.length ?? utf8.encode(body).length;
       processedBody = body;
     }
 
@@ -53,6 +73,7 @@ class HttpRequestTracker {
       requestHeaders: redactedHeaders,
       requestBody: processedBody,
       requestSize: processedSize,
+      multipartInfo: multipartInfo,
     );
 
     storage.addLog(entry);

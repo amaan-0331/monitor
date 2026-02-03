@@ -1,5 +1,8 @@
 import 'dart:async' show Stream;
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
 import 'package:monitor/src/core/monitor_storage.dart';
 import 'package:monitor/src/core/stream_controller_manager.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
@@ -76,6 +79,7 @@ class Monitor {
     Map<String, String>? headers,
     String? body,
     int? bodyBytes,
+    Uint8List? bodyRawBytes,
   }) {
     return _instance._httpTracker.startRequest(
       method: method,
@@ -83,6 +87,7 @@ class Monitor {
       headers: headers,
       body: body,
       bodyBytes: bodyBytes,
+      bodyRawBytes: bodyRawBytes,
     );
   }
 

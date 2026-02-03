@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import 'package:monitor/src/models/multipart_info.dart';
 import 'package:monitor/src/ui/theme.dart';
 
 /// Base sealed class for all log entries
@@ -43,6 +44,7 @@ final class HttpLogEntry extends LogEntry {
     this.statusCode,
     this.duration,
     this.errorMessage,
+    this.multipartInfo,
   });
 
   // Request data (immutable after creation)
@@ -59,6 +61,9 @@ final class HttpLogEntry extends LogEntry {
   final int? statusCode;
   final Duration? duration;
   final String? errorMessage;
+
+  // Multipart info (if request is multipart/form-data)
+  final MultipartInfo? multipartInfo;
 
   // Lifecycle state
   final HttpLogState state;
@@ -166,6 +171,7 @@ final class HttpLogEntry extends LogEntry {
       requestHeaders: requestHeaders,
       requestBody: requestBody,
       requestSize: requestSize,
+      multipartInfo: multipartInfo,
       responseHeaders: responseHeaders ?? this.responseHeaders,
       responseBody: responseBody ?? this.responseBody,
       responseSize: responseSize ?? this.responseSize,
@@ -193,6 +199,7 @@ final class HttpLogEntry extends LogEntry {
       'responseBody': responseBody,
       'responseSize': responseSize,
       'errorMessage': errorMessage,
+      'multipartInfo': multipartInfo?.toJson(),
     };
   }
 }
