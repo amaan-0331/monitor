@@ -211,7 +211,7 @@ class RequestTab extends StatelessWidget {
     final hasBody = entry.requestBody != null;
     final hasMultipart = entry.multipartInfo != null;
 
-    if (!hasHeaders && !hasBody && !hasMultipart) {
+    if (!hasHeaders && !hasBody) {
       return const EmptyState(message: 'No request data');
     }
 
@@ -348,23 +348,13 @@ class ResponseTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (hasHeaders) ...[
-            Section(
-              title: 'Headers',
-              child: CodeBlock(
-                code: const JsonEncoder.withIndent(
-                  '  ',
-                ).convert(entry.responseHeaders),
-              ),
-            ),
-            if (hasBody) const SizedBox(height: 16),
-          ],
-          if (hasBody)
+          if (hasBody) ...[
             Section(
               title:
                   'Body${entry.responseSize != null ? ' · ${entry.responseSizeText}' : ''}',
               child: ResponsePreview(entry: entry),
             ),
+          ],
           SizedBox(height: bottomPadding + 16),
         ],
       ),

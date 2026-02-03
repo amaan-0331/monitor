@@ -54,7 +54,7 @@ class HttpRequestTracker {
         bodyRawBytes: bodyRawBytes,
       );
       if (multipartInfo != null) {
-        processedBody = multipartInfo.placeholderBody;
+        processedBody = body;
         processedSize =
             bodyBytes ?? bodyRawBytes?.length ?? multipartInfo.totalSize;
       }

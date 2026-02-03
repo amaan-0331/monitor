@@ -1,3 +1,11 @@
+## 1.1.1
+
+### Fix
+
+- Use actual request body instead of multipart placeholder for accurate display
+- Remove incorrect multipart check in request tab empty state
+- Simplify response tab by removing headers section and focusing on body
+
 ## 1.1.0
 
 ### Features
@@ -14,7 +22,8 @@
 
 ### Documentation
 
-- Add AGENTS.md update pubspec with repository
+- Update pubspec with repository
+- Add AGENTS.md
 
 ## 0.0.13
 
@@ -64,7 +73,7 @@
 
 - Centralize duration tracking and optimize logging
 - Replace manual Stopwatch usage in example with centralized tracking in Monitor
-- Add internal _activeStopwatches map to store stopwatches per request ID
+- Add internal \_activeStopwatches map to store stopwatches per request ID
 - Cache color support check to avoid repeated platform detection
 - Optimize redaction and truncation with single-pass processing
 - Stream notifications only when listeners are present
