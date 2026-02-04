@@ -307,6 +307,8 @@ class ResponseTab extends StatelessWidget {
   final HttpLogEntry entry;
   final double bottomPadding;
 
+  static const _encoder = JsonEncoder.withIndent('  ');
+
   @override
   Widget build(BuildContext context) {
     if (entry.isPending) {
@@ -348,6 +350,13 @@ class ResponseTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasHeaders) ...[
+            Section(
+              title: 'Headers',
+              child: CodeBlock(code: _encoder.convert(entry.responseHeaders)),
+            ),
+            if (hasBody) const SizedBox(height: 16),
+          ],
           if (hasBody) ...[
             Section(
               title:
