@@ -1,3 +1,14 @@
+## 1.2.0
+
+### Improvements
+
+- Display response headers in Response preview
+- Ensure Monitor is initialized before use with \_ensureInitialized checks
+- Allow runtime configuration updates via updateConfig and \_reconfigure§
+- Add disposal state tracking to prevent use after dispose
+- Extract log trimming logic into reusable \_trimToMaxLogs method
+- Make internal fields non-final to support reconfiguration
+
 ## 1.1.1
 
 ### Fix
