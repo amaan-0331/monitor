@@ -4,7 +4,7 @@ import 'package:monitor/src/models/config.dart';
 class MonitorStorage {
   MonitorStorage(this._config);
 
-  final MonitorConfig _config;
+  MonitorConfig _config;
   final Map<String, LogEntry> _logsById = {};
   final List<String> _logOrder = [];
   final Map<String, Stopwatch> _activeStopwatches = {};
@@ -13,11 +13,7 @@ class MonitorStorage {
     if (!_config.enableLogStorage) return;
     _logsById[entry.id] = entry;
     _logOrder.add(entry.id);
-    if (_logOrder.length > _config.maxLogs) {
-      final oldestId = _logOrder.removeAt(0);
-      _logsById.remove(oldestId);
-      _activeStopwatches.remove(oldestId);
-    }
+    _trimToMaxLogs();
   }
 
   void updateLog(String id, LogEntry entry) {
@@ -31,6 +27,19 @@ class MonitorStorage {
     _logsById.clear();
     _logOrder.clear();
     _activeStopwatches.clear();
+  }
+
+  void updateConfig(MonitorConfig config) {
+    _config = config;
+    _trimToMaxLogs();
+  }
+
+  void _trimToMaxLogs() {
+    while (_logOrder.length > _config.maxLogs) {
+      final oldestId = _logOrder.removeAt(0);
+      _logsById.remove(oldestId);
+      _activeStopwatches.remove(oldestId);
+    }
   }
 
   LogEntry? getLog(String id) => _logsById[id];

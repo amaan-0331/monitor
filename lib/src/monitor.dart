@@ -16,60 +16,98 @@ class Monitor {
   Monitor._();
 
   static final Monitor _instance = Monitor._();
-  static Monitor get instance => _instance;
+  static Monitor get instance {
+    _ensureInitialized();
+    return _instance;
+  }
 
   static late MonitorConfig _config;
-  static MonitorConfig get config => _config;
+  static MonitorConfig get config {
+    _ensureInitialized();
+    return _config;
+  }
 
   static GlobalKey<NavigatorState>? navigatorKey;
 
-  late final MonitorStorage _storage;
-  late final StreamControllerManager _streamManager;
-  late final MonitorRedactor _redactor;
-  late final ConsolePrinter _printer;
-  late final HttpRequestTracker _httpTracker;
-  late final MessageLogger _messageLogger;
+  static bool _initialized = false;
+  static bool _disposed = false;
 
-  Stream<List<LogEntry>> get logStream => _streamManager.stream;
-  List<LogEntry> get logs => _storage.logs;
-  List<HttpLogEntry> get httpLogs => _storage.httpLogs;
-  List<MessageLogEntry> get messageLogs => _storage.messageLogs;
-  List<LogEntry> get errorLogs => _storage.errorLogs;
-  List<HttpLogEntry> get successLogs => _storage.successLogs;
-  List<HttpLogEntry> get pendingLogs => _storage.pendingLogs;
+  late MonitorStorage _storage;
+  late StreamControllerManager _streamManager;
+  late MonitorRedactor _redactor;
+  late ConsolePrinter _printer;
+  late HttpRequestTracker _httpTracker;
+  late MessageLogger _messageLogger;
 
-  List<LogEntry> search(String query) => _storage.search(query);
+  Stream<List<LogEntry>> get logStream {
+    _ensureInitialized();
+    return _streamManager.stream;
+  }
+
+  List<LogEntry> get logs {
+    _ensureInitialized();
+    return _storage.logs;
+  }
+
+  List<HttpLogEntry> get httpLogs {
+    _ensureInitialized();
+    return _storage.httpLogs;
+  }
+
+  List<MessageLogEntry> get messageLogs {
+    _ensureInitialized();
+    return _storage.messageLogs;
+  }
+
+  List<LogEntry> get errorLogs {
+    _ensureInitialized();
+    return _storage.errorLogs;
+  }
+
+  List<HttpLogEntry> get successLogs {
+    _ensureInitialized();
+    return _storage.successLogs;
+  }
+
+  List<HttpLogEntry> get pendingLogs {
+    _ensureInitialized();
+    return _storage.pendingLogs;
+  }
+
+  List<LogEntry> search(String query) {
+    _ensureInitialized();
+    return _storage.search(query);
+  }
 
   void clearLogs() {
+    _ensureInitialized();
     _storage.clear();
     _streamManager.notify(_storage.logs);
   }
 
   static void init({MonitorConfig? config}) {
-    _config = config ?? const MonitorConfig();
+    final nextConfig = config ?? const MonitorConfig();
+    if (_initialized && !_disposed) {
+      if (_config == nextConfig) return;
+      _config = nextConfig;
+      _instance._reconfigure(nextConfig);
+      return;
+    }
 
-    _instance._storage = MonitorStorage(_config);
-    _instance._streamManager = StreamControllerManager();
-    _instance._redactor = MonitorRedactor(_config);
-    _instance._printer = ConsolePrinter(_config, _instance._redactor);
-    _instance._httpTracker = HttpRequestTracker(
-      storage: _instance._storage,
-      printer: _instance._printer,
-      redactor: _instance._redactor,
-      streamManager: _instance._streamManager,
-      config: _config,
-    );
-    _instance._messageLogger = MessageLogger(
-      storage: _instance._storage,
-      printer: _instance._printer,
-      streamManager: _instance._streamManager,
-    );
-
-    _instance._printer.printInitialization();
+    _config = nextConfig;
+    _instance._initialize(nextConfig);
+    _initialized = true;
+    _disposed = false;
   }
 
   static void updateConfig(MonitorConfig newConfig) {
+    if (!_initialized || _disposed) {
+      init(config: newConfig);
+      return;
+    }
+    if (_config == newConfig) return;
     _config = newConfig;
+    _instance._reconfigure(newConfig);
     _instance._messageLogger.info('Monitor configuration updated');
   }
 
@@ -81,6 +119,7 @@ class Monitor {
     int? bodyBytes,
     Uint8List? bodyRawBytes,
   }) {
+    _ensureInitialized();
     return _instance._httpTracker.startRequest(
       method: method,
       uri: uri,
@@ -98,6 +137,7 @@ class Monitor {
     String? responseBody,
     int? responseSize,
   }) {
+    _ensureInitialized();
     _instance._httpTracker.completeRequest(
       id: id,
       statusCode: statusCode,
@@ -112,6 +152,7 @@ class Monitor {
     required String errorMessage,
     bool isTimeout = false,
   }) {
+    _ensureInitialized();
     _instance._httpTracker.failRequest(
       id: id,
       errorMessage: errorMessage,
@@ -124,6 +165,7 @@ class Monitor {
     MessageLevel level = MessageLevel.info,
     String? url,
   }) {
+    _ensureInitialized();
     _instance._messageLogger.log(msg, level: level, url: url);
   }
 
@@ -134,7 +176,61 @@ class Monitor {
       message('Cache hit - served from memory', url: cacheKey);
 
   void dispose() {
+    if (!_initialized || _disposed) return;
     _streamManager.dispose();
     _storage.clear();
+    _initialized = false;
+    _disposed = true;
+  }
+
+  static void _ensureInitialized() {
+    if (_disposed) {
+      throw StateError(
+        'Monitor has been disposed. Call Monitor.init() to reinitialize.',
+      );
+    }
+    if (!_initialized) {
+      throw StateError(
+        'Monitor has not been initialized. Call Monitor.init() first.',
+      );
+    }
+  }
+
+  void _initialize(MonitorConfig config) {
+    _storage = MonitorStorage(config);
+    _streamManager = StreamControllerManager();
+    _redactor = MonitorRedactor(config);
+    _printer = ConsolePrinter(config, _redactor);
+    _httpTracker = HttpRequestTracker(
+      storage: _storage,
+      printer: _printer,
+      redactor: _redactor,
+      streamManager: _streamManager,
+      config: config,
+    );
+    _messageLogger = MessageLogger(
+      storage: _storage,
+      printer: _printer,
+      streamManager: _streamManager,
+    );
+    _printer.printInitialization();
+  }
+
+  void _reconfigure(MonitorConfig config) {
+    _storage.updateConfig(config);
+    _redactor = MonitorRedactor(config);
+    _printer = ConsolePrinter(config, _redactor);
+    _httpTracker = HttpRequestTracker(
+      storage: _storage,
+      printer: _printer,
+      redactor: _redactor,
+      streamManager: _streamManager,
+      config: config,
+    );
+    _messageLogger = MessageLogger(
+      storage: _storage,
+      printer: _printer,
+      streamManager: _streamManager,
+    );
   }
 }
