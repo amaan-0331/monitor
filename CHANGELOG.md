@@ -1,3 +1,10 @@
+## 1.3.0
+
+### Features
+
+- Add settings page for runtime configuration
+- Centralize theme into MonitorTheme class
+
 ## 1.2.0
 
 ### Improvements
