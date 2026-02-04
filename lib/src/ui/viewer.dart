@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:monitor/monitor.dart';
 import 'package:monitor/src/models/api_log_entry.dart';
 import 'package:monitor/src/ui/log_details/details_sheet.dart';
+import 'package:monitor/src/ui/settings/settings_page.dart';
 import 'package:monitor/src/ui/table_viewer.dart';
 import 'package:monitor/src/ui/theme.dart';
 
@@ -23,74 +24,91 @@ void showMonitor() {
 }
 
 /// The main view displaying the list of intercepted network traffic.
-class MonitorView extends StatefulWidget {
+class MonitorView extends StatelessWidget {
   const MonitorView({super.key});
-
-  @override
-  State<MonitorView> createState() => _MonitorViewState();
-}
-
-class _MonitorViewState extends State<MonitorView> {
-  int _currentIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return Theme(
-      data: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: CustomColors.surface,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: CustomColors.surface,
-          foregroundColor: CustomColors.onSurface,
-          elevation: 0,
-          scrolledUnderElevation: 1,
-        ),
-        cardTheme: const CardThemeData(color: CustomColors.surfaceContainer),
-        dividerTheme: const DividerThemeData(color: CustomColors.divider),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(foregroundColor: CustomColors.primary),
-        ),
+      data: MonitorTheme.data,
+      child: Navigator(
+        onGenerateRoute: (settings) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (context) => const MonitorDashboard(),
+          );
+        },
       ),
-      child: Scaffold(
-        backgroundColor: CustomColors.surface,
-        appBar: AppBar(
-          title: const Text(
-            'Monitor',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: CustomColors.onSurface,
-            ),
+    );
+  }
+}
+
+class MonitorDashboard extends StatefulWidget {
+  const MonitorDashboard({super.key});
+
+  @override
+  State<MonitorDashboard> createState() => _MonitorDashboardState();
+}
+
+class _MonitorDashboardState extends State<MonitorDashboard> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: CustomColors.surface,
+      appBar: AppBar(
+        title: const Text(
+          'Monitor',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: CustomColors.onSurface,
           ),
-          centerTitle: true,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
-              tooltip: 'Clear logs',
-              onPressed: () {
-                Monitor.instance.clearLogs();
-                setState(() {});
-              },
-            ),
-          ],
         ),
-        body: IndexedStack(
-          index: _currentIndex,
-          children: const [_ListView(), TableLogViewer()],
+        centerTitle: true,
+        leading: BackButton(
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.list), label: 'List'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.table_chart),
-              label: 'Table',
-            ),
-          ],
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Clear logs',
+            onPressed: () {
+              Monitor.instance.clearLogs();
+              setState(() {});
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (context) => const MonitorSettingsPage(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: const [_ListView(), TableLogViewer()],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'List'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.table_chart),
+            label: 'Table',
+          ),
+        ],
       ),
     );
   }

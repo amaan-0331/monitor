@@ -92,7 +92,9 @@ class MonitorConfig {
     bool? enableLogStorage,
     ConsoleLogFormat? consoleFormat,
     int? maxBodyLength,
+    bool forceMaxBodyLengthNull = false,
     int? maxHeaderLength,
+    bool forceMaxHeaderLengthNull = false,
     List<String>? headerRedactionKeys,
     List<String>? bodyRedactionKeys,
     bool? logRequestHeaders,
@@ -104,8 +106,12 @@ class MonitorConfig {
       maxLogs: maxLogs ?? this.maxLogs,
       enableLogStorage: enableLogStorage ?? this.enableLogStorage,
       consoleFormat: consoleFormat ?? this.consoleFormat,
-      maxBodyLength: maxBodyLength ?? this.maxBodyLength,
-      maxHeaderLength: maxHeaderLength ?? this.maxHeaderLength,
+      maxBodyLength: forceMaxBodyLengthNull
+          ? null
+          : (maxBodyLength ?? this.maxBodyLength),
+      maxHeaderLength: forceMaxHeaderLengthNull
+          ? null
+          : (maxHeaderLength ?? this.maxHeaderLength),
       headerRedactionKeys: headerRedactionKeys ?? this.headerRedactionKeys,
       bodyRedactionKeys: bodyRedactionKeys ?? this.bodyRedactionKeys,
       logRequestHeaders: logRequestHeaders ?? this.logRequestHeaders,

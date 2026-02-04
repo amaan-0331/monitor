@@ -1,5 +1,22 @@
 import 'package:flutter/material.dart';
 
+abstract class MonitorTheme {
+  static ThemeData get data => ThemeData.dark().copyWith(
+    scaffoldBackgroundColor: CustomColors.surface,
+    appBarTheme: const AppBarTheme(
+      backgroundColor: CustomColors.surface,
+      foregroundColor: CustomColors.onSurface,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+    ),
+    cardTheme: const CardThemeData(color: CustomColors.surfaceContainer),
+    dividerTheme: const DividerThemeData(color: CustomColors.divider),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(foregroundColor: CustomColors.primary),
+    ),
+  );
+}
+
 abstract class CustomColors {
   static const Color surface = Color(0xFF121212);
   static const Color surfaceContainer = Color(0xFF1E1E1E);
